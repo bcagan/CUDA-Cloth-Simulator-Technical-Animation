@@ -48,7 +48,6 @@ Step 3. Test
 cd Dist
 ./browser
 ```
-```
 
 ## Copyright
 All source is copyright Jim McCann unless otherwise noted. Feel free to use
