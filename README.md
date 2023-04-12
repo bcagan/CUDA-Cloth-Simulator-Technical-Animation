@@ -48,19 +48,6 @@ Step 3. Test
 cd Dist
 ./browser
 ```
-
-## Function to implement
-```
-.
-├── Character
-|   ├── Cloth.cpp
-|       ├── Cloth::Cloth()
-|       ├── void Cloth::simulation_step()
-|       └── void Cloth::euler_step()
-|   ├── Particle.cpp
-|       └── void Particle::clearForce()
-|   ├── SpringForce.cpp
-|       └── void SpringForce::apply_force()
 ```
 
 ## Copyright
