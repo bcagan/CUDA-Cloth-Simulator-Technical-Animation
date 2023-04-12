@@ -1,0 +1,12 @@
+*.exe
+*.ilk
+*.iobj
+*.ipdb
+*.pdb
+ide/VS2017/Debug
+ide/VS2017/Release
+ide/VS2017/x64
+ide/VS2017/.vs
+
+*.o
+Dist/browser

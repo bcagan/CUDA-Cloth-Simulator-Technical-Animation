@@ -1,0 +1,17 @@
+TOP = .. ;
+
+SubDir TOP Character ;
+
+NAMES = Cloth Particle Force SpringForce Draw Character pose_utils control_utils Skin skin_utils SVGDraw sensor_utils ;
+
+ObjectC++Flags Draw SVGDraw : $(SDLC++FLAGS) ;
+ObjectC++Flags Skin : $(SDLC++FLAGS) ;
+ObjectC++Flags skin_utils : $(SDLC++FLAGS) ;
+ObjectC++Flags Particle : $(SDLC++FLAGS) ;
+ObjectC++Flags SpringForce : $(SDLC++FLAGS) ;
+ObjectC++Flags Cloth : $(SDLC++FLAGS) ;
+ObjectC++Flags sensor_utils : $(SDLC++FLAGS) ;
+
+CHARACTER_OBJECTS = $(NAMES:D=$(SUBDIR):S=$(SUFOBJ)) ;
+
+MyObjects $(NAMES:S=.cpp) ;

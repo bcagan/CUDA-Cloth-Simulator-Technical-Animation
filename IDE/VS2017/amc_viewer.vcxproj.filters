@@ -1,0 +1,254 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Header Files\Character">
+      <UniqueIdentifier>{eb2ef051-2b3a-4c42-9b0f-77e5986335ac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Library">
+      <UniqueIdentifier>{3945c96c-3729-41d1-9792-558a86bdff3e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Vector">
+      <UniqueIdentifier>{9684445c-1399-4c83-bf4e-3deb2bd2d280}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Character">
+      <UniqueIdentifier>{9231e9c6-96ca-4be7-8581-2cb5c741e361}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Library">
+      <UniqueIdentifier>{38202ad5-aa04-4805-b590-b0538b33fa14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Browser">
+      <UniqueIdentifier>{05986547-4729-4414-abd9-535291ffcb77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Graphics">
+      <UniqueIdentifier>{afeec357-2f80-445e-99f5-d630ce9ecc50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Browser">
+      <UniqueIdentifier>{954bc25b-6c48-48e3-a207-cae39efa0be3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Graphics">
+      <UniqueIdentifier>{f3e67348-2d2f-4bd9-80d1-4734453416c8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Browser\BrowseMode.cpp">
+      <Filter>Source Files\Browser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Browser\browser.cpp">
+      <Filter>Source Files\Browser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Browser\Mode.cpp">
+      <Filter>Source Files\Browser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\Character.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\control_utils.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\Draw.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\pose_utils.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\sensor_utils.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\Skin.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\skin_utils.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\SVGDraw.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Graphics\texfont.c">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Graphics\Cache.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Graphics\Font.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Graphics\GLExtensions.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Graphics\GLSLShader.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Graphics\Graphics.cpp">
+      <Filter>Source Files\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\Library.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\Reader.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\ReadSkeleton.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\Skeleton.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\ReadSkeletonV.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\Vfile.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\WriteAsfAmc.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Library\WriteBvh.cpp">
+      <Filter>Source Files\Library</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\Cloth.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\Force.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\Particle.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Character\SpringForce.cpp">
+      <Filter>Source Files\Character</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Browser\BrowseMode.hpp">
+      <Filter>Header Files\Browser</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Browser\Mode.hpp">
+      <Filter>Header Files\Browser</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\Character.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\control_utils.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\Draw.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\pose_utils.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\sensor_utils.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\skin_utils.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\Skin.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\SVGDraw.hpp">
+      <Filter>Header Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\Cache.hpp">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\Font.hpp">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\glext.h">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\GLExtensions.hpp">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\GLSLShader.hpp">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\Graphics.hpp">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\Material.hpp">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Graphics\texfont.h">
+      <Filter>Header Files\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\Library.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\Reader.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\ReadSkeleton.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\Skeleton.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\Box.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\Matrix.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\Quat.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\QuatGL.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\RootedVector.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\Vector.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\VectorGL.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Vector\Misc.hpp">
+      <Filter>Header Files\Vector</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\Vfile.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\WriteAsfAmc.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Library\WriteBvh.hpp">
+      <Filter>Header Files\Library</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\Cloth.hpp">
+      <Filter>Source Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\Force.hpp">
+      <Filter>Source Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\Particle.hpp">
+      <Filter>Source Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\SpringForce.hpp">
+      <Filter>Source Files\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Character\defined.h">
+      <Filter>Source Files\Character</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\..\Character\ClothDevice.cu">
+      <Filter>Source Files\Character</Filter>
+    </CudaCompile>
+  </ItemGroup>
+</Project>

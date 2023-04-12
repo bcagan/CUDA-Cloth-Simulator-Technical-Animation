@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{19AEEB8A-53CF-4C7F-8CF6-C015A124CEB4}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>amc_viewer</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <CudaToolkitCustomDir>$(CUDA_PATH)</CudaToolkitCustomDir>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)../../Dist/</OutDir>
+    <TargetName>browser</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <TargetName>browser</TargetName>
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)../../Dist/</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)../../Dist/</OutDir>
+    <TargetName>browser</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>browser</TargetName>
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)../../Dist/</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;WINDOWS;_DEBUG;_CONSOLE;_USE_MATH_DEFINES;LIBRARY_USE_VFILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../../;../../Dependencies/SDL-1.2.15/include;../../Dependencies/libxml2-2.7.8.win32/include;../../Dependencies/iconv-1.9.2.win32/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>../../Dependencies/SDL-1.2.15/lib/x86;../../Dependencies/libxml2-2.7.8.win32/lib;../../Dependencies/iconv-1.9.2.win32/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDLmain.lib;SDL.lib;OpenGL32.lib;GlU32.lib;Ws2_32.lib;libxml2.lib;iconv.lib;cudart_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;WINDOWS;_DEBUG;_CONSOLE;_USE_MATH_DEFINES;LIBRARY_USE_VFILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../../;../../Dependencies/SDL-1.2.15/include;../../Dependencies/libxml2-2.7.8.win32/include;../../Dependencies/iconv-1.9.2.win32/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>../../Dependencies/SDL-1.2.15/lib/x64;../../Dependencies/libxml2-2.7.8.win32/lib;../../Dependencies/iconv-1.9.2.win32/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDLmain.lib;SDL.lib;OpenGL32.lib;GlU32.lib;Ws2_32.lib;libxml2.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;WINDOWS;NDEBUG;_CONSOLE;_USE_MATH_DEFINES;LIBRARY_USE_VFILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../../;../../Dependencies/SDL-1.2.15/include;../../Dependencies/libxml2-2.7.8.win32/include;../../Dependencies/iconv-1.9.2.win32/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SDLmain.lib;SDL.lib;OpenGL32.lib;GlU32.lib;Ws2_32.lib;libxml2.lib;iconv.lib;cudart_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../Dependencies/SDL-1.2.15/lib/x86;../../Dependencies/libxml2-2.7.8.win32/lib;../../Dependencies/iconv-1.9.2.win32/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;WINDOWS;NDEBUG;_CONSOLE;_USE_MATH_DEFINES;LIBRARY_USE_VFILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../../;../../Dependencies/SDL-1.2.15/include;../../Dependencies/libxml2-2.7.8.win32/include;../../Dependencies/iconv-1.9.2.win32/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SDLmain.lib;SDL.lib;OpenGL32.lib;GlU32.lib;Ws2_32.lib;libxml2.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../Dependencies/SDL-1.2.15/lib/x64;../../Dependencies/libxml2-2.7.8.win32/lib;../../Dependencies/iconv-1.9.2.win32/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\Browser\BrowseMode.cpp" />
+    <ClCompile Include="..\..\Browser\browser.cpp" />
+    <ClCompile Include="..\..\Browser\Mode.cpp" />
+    <ClCompile Include="..\..\Character\Character.cpp" />
+    <ClCompile Include="..\..\Character\Cloth.cpp" />
+    <ClCompile Include="..\..\Character\control_utils.cpp" />
+    <ClCompile Include="..\..\Character\Draw.cpp" />
+    <ClCompile Include="..\..\Character\Force.cpp" />
+    <ClCompile Include="..\..\Character\Particle.cpp" />
+    <ClCompile Include="..\..\Character\pose_utils.cpp" />
+    <ClCompile Include="..\..\Character\sensor_utils.cpp" />
+    <ClCompile Include="..\..\Character\Skin.cpp" />
+    <ClCompile Include="..\..\Character\skin_utils.cpp" />
+    <ClCompile Include="..\..\Character\SpringForce.cpp" />
+    <ClCompile Include="..\..\Character\SVGDraw.cpp" />
+    <ClCompile Include="..\..\Graphics\Cache.cpp" />
+    <ClCompile Include="..\..\Graphics\Font.cpp" />
+    <ClCompile Include="..\..\Graphics\GLExtensions.cpp" />
+    <ClCompile Include="..\..\Graphics\GLSLShader.cpp" />
+    <ClCompile Include="..\..\Graphics\Graphics.cpp" />
+    <ClCompile Include="..\..\Graphics\texfont.c" />
+    <ClCompile Include="..\..\Library\Library.cpp" />
+    <ClCompile Include="..\..\Library\Reader.cpp" />
+    <ClCompile Include="..\..\Library\ReadSkeleton.cpp" />
+    <ClCompile Include="..\..\Library\ReadSkeletonV.cpp" />
+    <ClCompile Include="..\..\Library\Skeleton.cpp" />
+    <ClCompile Include="..\..\Library\Vfile.cpp" />
+    <ClCompile Include="..\..\Library\WriteAsfAmc.cpp" />
+    <ClCompile Include="..\..\Library\WriteBvh.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\Browser\BrowseMode.hpp" />
+    <ClInclude Include="..\..\Browser\Mode.hpp" />
+    <ClInclude Include="..\..\Character\Character.hpp" />
+    <ClInclude Include="..\..\Character\Cloth.hpp" />
+    <ClInclude Include="..\..\Character\control_utils.hpp" />
+    <ClInclude Include="..\..\Character\defined.h" />
+    <ClInclude Include="..\..\Character\Draw.hpp" />
+    <ClInclude Include="..\..\Character\Force.hpp" />
+    <ClInclude Include="..\..\Character\Particle.hpp" />
+    <ClInclude Include="..\..\Character\pose_utils.hpp" />
+    <ClInclude Include="..\..\Character\sensor_utils.hpp" />
+    <ClInclude Include="..\..\Character\Skin.hpp" />
+    <ClInclude Include="..\..\Character\skin_utils.hpp" />
+    <ClInclude Include="..\..\Character\SpringForce.hpp" />
+    <ClInclude Include="..\..\Character\SVGDraw.hpp" />
+    <ClInclude Include="..\..\Graphics\Cache.hpp" />
+    <ClInclude Include="..\..\Graphics\Font.hpp" />
+    <ClInclude Include="..\..\Graphics\glext.h" />
+    <ClInclude Include="..\..\Graphics\GLExtensions.hpp" />
+    <ClInclude Include="..\..\Graphics\GLSLShader.hpp" />
+    <ClInclude Include="..\..\Graphics\Graphics.hpp" />
+    <ClInclude Include="..\..\Graphics\Material.hpp" />
+    <ClInclude Include="..\..\Graphics\texfont.h" />
+    <ClInclude Include="..\..\Library\Library.hpp" />
+    <ClInclude Include="..\..\Library\Reader.hpp" />
+    <ClInclude Include="..\..\Library\ReadSkeleton.hpp" />
+    <ClInclude Include="..\..\Library\Skeleton.hpp" />
+    <ClInclude Include="..\..\Library\Vfile.hpp" />
+    <ClInclude Include="..\..\Library\WriteAsfAmc.hpp" />
+    <ClInclude Include="..\..\Library\WriteBvh.hpp" />
+    <ClInclude Include="..\..\Vector\Box.hpp" />
+    <ClInclude Include="..\..\Vector\Matrix.hpp" />
+    <ClInclude Include="..\..\Vector\Misc.hpp" />
+    <ClInclude Include="..\..\Vector\Quat.hpp" />
+    <ClInclude Include="..\..\Vector\QuatGL.hpp" />
+    <ClInclude Include="..\..\Vector\RootedVector.hpp" />
+    <ClInclude Include="..\..\Vector\Vector.hpp" />
+    <ClInclude Include="..\..\Vector\VectorGL.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\..\Character\ClothDevice.cu" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.targets" />
+  </ImportGroup>
+</Project>
