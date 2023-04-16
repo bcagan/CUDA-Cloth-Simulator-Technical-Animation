@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-//#define CUDA
+#define CUDA
 
 //#define VERBOSE
 
@@ -29,6 +29,7 @@ static std::vector<Particle*> pVector;
 static std::vector<SubParticle> cudaPVector;
 static std::vector<Force*> fVector;
 static std::vector<std::pair<int, int>> cudaFVector;
+static bool* bVector;
 
 //Consts
 #define RAND (((rand()%2000)/1000.f)-1.f)
@@ -58,13 +59,16 @@ bool stepAhead = false;
 bool spheresOn = true;
 float sphereRadius = 4.f;
 bool randHeight = false;
+float normalDist = 7.5;
+double dist = 7.5/2.0;
 
 
 
 
-bool* GPU_simulate(static std::vector<Sphere> sVector,
+void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
-	static std::vector<std::pair<int,int>>* fVector);
+	static std::vector<std::pair<int, int>>* fVector,
+	bool** bVector);
 
 Vector3f Vec3ToVector3f(Vec3 v) {
 	return make_vector(v.x, v.y, v.z);
@@ -88,8 +92,8 @@ Cloth::Cloth() {
 	//All that follows are variables used through out the program that can be set along with the cloth
 	dt = 1.f/60.f;
 	float height = 10.f;
-	float normalDist = 7.5;
-	double dist = normalDist / radius;
+	normalDist = 7.5;
+	dist = normalDist / radius;
 	Vec3 center = Vec3(0.0f, height, 0.0f);
 	float offset = dist;
 	ks = 100;
@@ -106,7 +110,7 @@ Cloth::Cloth() {
 	randHeight = false;
 	windOn = false;
 	doDrawTriangle = true;
-	tearing = true; //Visaulizes better without triangles being drawn
+	tearing = false; //Visaulizes better without triangles being drawn
 	integratorSet = SYMPLECTIC;
 	//Forward is the least stable, Symplectic has the best results, 
 	//Backwards leads to weak forces and is also extremely slow, 
@@ -275,7 +279,7 @@ Cloth::Cloth() {
 		sphere3.center = Vec3(4.f, 2.f, 4.f);
 		sVector.push_back(sphere3);
 	}
-
+	bVector = (bool*)calloc(fVector.size(), sizeof(bool));
 }
 
 Cloth::~Cloth(){
@@ -325,14 +329,14 @@ void Cloth::draw(){
 
 void Cloth::simulation_step(){
 
+
 #ifdef CUDA
 	
 	
 
-
-
-	bool* tornVec = GPU_simulate(sVector, &cudaPVector, &cudaFVector);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &bVector);
 	size_t tornLen = fVector.size();
+
 
 #endif // CUDA
 
@@ -342,8 +346,10 @@ void Cloth::simulation_step(){
 
 
 	if (!stepAhead) {
-		///Then, we can move forward
-		///Change this to others if you want to implement RK2 or RK4 or other integration method
+
+		//Move BOTH of these to CPU and cuda. BOTH can be run on gpu since both are parallel over each CPU!
+
+		//Then, we can move forward
 		euler_step(integratorSet);
 
 		//Floor collision
@@ -429,7 +435,7 @@ void Cloth::cpu_simulate() {
 			}
 		}
 
-		if (pMini.m_Position.y <= EPS) {
+		if (pMini.m_Position.y <= 2*EPS) {
 			//Apply friction force
 			Vec3 frictionVelVector = Vec3(-pMini.m_Velocity.x, 0.f, -pMini.m_Velocity.z);
 			Vec3 frictionVector = vecNormalize(frictionVelVector);
