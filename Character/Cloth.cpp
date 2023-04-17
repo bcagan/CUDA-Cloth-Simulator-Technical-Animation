@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-#define CUDA
+//#define CUDA
 
 //#define VERBOSE
 

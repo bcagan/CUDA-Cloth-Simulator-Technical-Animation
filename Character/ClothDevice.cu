@@ -170,7 +170,7 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, bool* bVector, size_t
 
 
 __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pVector, 
-	size_t pLength, float tclock, bool windOn, float ks, float springConstSphere) {
+	size_t pLength, float tclock, bool windOn, float ks, float springConstSphere, int radius) {
 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= pLength) return;
@@ -202,8 +202,8 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 		if (vecNorm(p->m_Position - s.center) < s.radius) {	
 
 			SubParticle tempSphereParticle(0.f,0.f,0.f);
-			//apply_force(p,&tempSphereParticle, ks != 0.f && ks < 50 ? springConstSphere * (5.8f / (sqrt(ks))) : springConstSphere, 
-			//	10.f, (2.f + radius / 40.f) * s.radius, INFINITY,nullptr,false); //Distance const scaled by radii to avoid clipping
+			apply_force(p,&tempSphereParticle, ks != 0.f && ks < 50 ? springConstSphere * (5.8f / (sqrt(ks))) : springConstSphere, 
+				10.f, (2.f + radius / 40.f) * s.radius, INFINITY,nullptr,false); //Distance const scaled by radii to avoid clipping
 
 		}
 	}
@@ -242,7 +242,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
-	particleRoutine CUDA_KERNEL(numBlocksParticles,blockSize1d) (devSVec,sVector.size(), devPVec,pVector->size(),tclock,windOn,ks,springConstSphere);
+	particleRoutine CUDA_KERNEL(numBlocksParticles,blockSize1d) (devSVec,sVector.size(), devPVec,pVector->size(),tclock,windOn,ks,springConstSphere,radius);
 	auto particle_end = std::chrono::high_resolution_clock::now();
 
 
