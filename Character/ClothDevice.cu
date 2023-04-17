@@ -79,6 +79,7 @@ extern double dist;
 static SubParticle* devPVec = NULL;
 static Sphere* devSVec = NULL;
 static std::pair<int, int>* devFVec = NULL;
+static std::pair<Vec3, Vec3>* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
 void clothInit(std::vector<SubParticle> pVec, std::vector<std::pair<int,int>> fVec, std::vector<Sphere> sVec, bool* bVec) {
@@ -97,6 +98,9 @@ void clothInit(std::vector<SubParticle> pVec, std::vector<std::pair<int,int>> fV
 	cudaMalloc(&devBVec, fVec.size() * sizeof(bool));
 	cudaMemset(&devBVec, 0, fVec.size() * sizeof(bool));
 	cudaMemcpy(&devBVec, bVec, fVec.size() * sizeof(bool), cudaMemcpyHostToDevice);
+
+	cudaMalloc(&devFAccumalateVec, fVec.size() * sizeof(std::pair<Vec3, Vec3>));
+	cudaMemset(&devFAccumalateVec, 0, fVec.size() * sizeof(std::pair<Vec3, Vec3>));
 }
 
 
@@ -122,9 +126,8 @@ __device__ void clearForce(SubParticle* p)
 }
 
 
-//Something is incorrect here
 
-__device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear)
+__device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce1, Vec3* retForce2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear, bool copy)
 {
 	Vec3 p1 = m_p1->m_Position;
 	Vec3 p2 = m_p2->m_Position;
@@ -138,8 +141,15 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, float m_ks, fl
 	}
 	Vec3 f2 = Vec3(-1.f) * f1;
 	if (testTear && abs(vecNorm(f1)) > m_ks * tearFactor) *teared = true;
-	m_p1->m_ForceAccumulator += f1;
-	m_p2->m_ForceAccumulator += f2;
+	if (copy) {
+		*retForce1 += f1;
+		*retForce2 += f2;
+	}
+	else {
+		*retForce1 = f1;
+		*retForce2 = f2;
+
+	}
 }
 
 
@@ -155,13 +165,13 @@ __device__ SpringForce::SpringForce(SubParticle* p1, SubParticle* p2, float dist
 
 
 
-__global__ void forceRoutine(std::pair<int, int>* fVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
+__global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<Vec3,Vec3>* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= start + fLength || index < start) return;
 	if (bVector[index]) return;
 	std::pair<int, int> f = fVector[index];
 	float cudaTearFactor = 4.f;
-	apply_force(&(pVector[f.first]), &(pVector[f.second]), ks, kd, dist, cudaTearFactor, &(bVector[index]),true);
+	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[index].first), &(accVector[index].second),ks, kd, dist, cudaTearFactor, &(bVector[index]), true, false);
 	if (!tearing) {
 		bVector[index] = false;
 	}
@@ -202,8 +212,9 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 		if (vecNorm(p->m_Position - s.center) < s.radius) {	
 
 			SubParticle tempSphereParticle(0.f,0.f,0.f);
-			apply_force(p,&tempSphereParticle, ks != 0.f && ks < 50 ? springConstSphere * (5.8f / (sqrt(ks))) : springConstSphere, 
-				10.f, (2.f + radius / 40.f) * s.radius, INFINITY,nullptr,false); //Distance const scaled by radii to avoid clipping
+			apply_force(p,&tempSphereParticle,&(p->m_ForceAccumulator),&(tempSphereParticle.m_ForceAccumulator), 
+				ks != 0.f && ks < 50 ? springConstSphere * (5.8f / (sqrt(ks))) : springConstSphere, 
+				10.f, (2.f + radius / 40.f) * s.radius, INFINITY,nullptr,false, true); //Distance const scaled by radii to avoid clipping
 
 		}
 	}
@@ -234,34 +245,29 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	auto overhead1_end = std::chrono::high_resolution_clock::now();
 
-
-	for (auto& p : *pVector) {
-		CPUPrintVec3(p.m_ForceAccumulator);
-	}
-	std::cout << std::endl << std::endl << std::endl;
-
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
 	particleRoutine CUDA_KERNEL(numBlocksParticles,blockSize1d) (devSVec,sVector.size(), devPVec,pVector->size(),tclock,windOn,ks,springConstSphere,radius);
 	auto particle_end = std::chrono::high_resolution_clock::now();
 
-
-
 	auto f_start = std::chrono::high_resolution_clock::now();
 	//Apply spring forces and tearing if need be
-	for (int i = 0; i < fVector->size(); i++) {
-		forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devBVec, i, 1, tearing, devPVec, ks, kd, dist);
-	}
+	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devFAccumalateVec, devBVec, 0,fVector->size(), tearing, devPVec, ks, kd, dist);
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
-	auto f_end = std::chrono::high_resolution_clock::now();
-
-
-	for (auto& p : *pVector) {
-		CPUPrintVec3(p.m_ForceAccumulator);
+	std::vector<std::pair<Vec3, Vec3>> fAccumulateRet(fVector->size());
+	cudaMemcpy(fAccumulateRet.data(), devFAccumalateVec, fVector->size() * sizeof(std::pair<Vec3, Vec3>), cudaMemcpyDeviceToHost);
+	//Accumulate results
+	for (int i = 0; i < fVector->size(); i++) {
+		(*pVector)[(*fVector)[i].first].m_ForceAccumulator.x += fAccumulateRet[i].first.x;
+		(*pVector)[(*fVector)[i].first].m_ForceAccumulator.y += fAccumulateRet[i].first.y;
+		(*pVector)[(*fVector)[i].first].m_ForceAccumulator.z += fAccumulateRet[i].first.z;
+		(*pVector)[(*fVector)[i].second].m_ForceAccumulator.x += fAccumulateRet[i].second.x;
+		(*pVector)[(*fVector)[i].second].m_ForceAccumulator.y += fAccumulateRet[i].second.y;
+		(*pVector)[(*fVector)[i].second].m_ForceAccumulator.z += fAccumulateRet[i].second.z;
 	}
-	std::cout << std::endl << std::endl << std::endl;
+	auto f_end = std::chrono::high_resolution_clock::now();
 
 	auto overhead2_start = std::chrono::high_resolution_clock::now();
 

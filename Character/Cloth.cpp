@@ -8,7 +8,7 @@
 
 //#define CUDA
 
-//#define VERBOSE
+#define VERBOSE
 
 struct Sphere
 {
@@ -39,7 +39,7 @@ static bool* bVector;
 #define FRICTION 0.5f
 
 //Cloth and spatial grid parameters
-const int radius = 3;
+const int radius = 30;
 const int diameter = 2 * radius + 1;
 const int gridDivisions = diameter / 6;
 
@@ -120,7 +120,7 @@ Cloth::Cloth() {
 	int sceneSetting = 0; //Faster way of choosing var. presets
 
 	if (sceneSetting == 0) { //Spheres
-		spheresOn = false;
+		spheresOn = true;
 		clothOption = 0;
 		pin = true;
 		sidePin = false;
@@ -419,10 +419,6 @@ void Cloth::cpu_simulate() {
 	};
 
 
-	std::cout << "before\n";
-	for (auto& p : cudaPVector) {
-		CPUPrintVec3C(p.m_ForceAccumulator);
-	}
 
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
@@ -441,7 +437,7 @@ void Cloth::cpu_simulate() {
 				SpringForce collideForce(&pMini, &tempSphereParticle, (2.f + radius / 40.f) * s.radius,
 					ks != 0.f && ks < 50 ? springConstSphere * (5.8f / (sqrt(ks))) : springConstSphere, //scale sphere ks to allow functioning at lower cloth ks's (10-50)
 					(2.f + radius / 40.f) * s.radius, 0, 0, INFINITY); //Cannot find a good values for ks < 10
-				//collideForce.apply_force(); //Distance const scaled by radii to avoid clipping
+				collideForce.apply_force(); //Distance const scaled by radii to avoid clipping
 			}
 		}
 
@@ -450,7 +446,7 @@ void Cloth::cpu_simulate() {
 			Vec3 frictionVelVector = Vec3(-pMini.m_Velocity.x, 0.f, -pMini.m_Velocity.z);
 			Vec3 frictionVector = vecNormalize(frictionVelVector);
 			float frictionVel = vecNorm(frictionVelVector);
-			//pMini.m_ForceAccumulator = pMini.m_ForceAccumulator +  frictionVelVector * FRICTION;
+			pMini.m_ForceAccumulator = pMini.m_ForceAccumulator +  frictionVelVector * FRICTION;
 		}
 	}
 	auto particle_end = std::chrono::high_resolution_clock::now();
@@ -473,11 +469,6 @@ void Cloth::cpu_simulate() {
 		}
 	}
 	
-	std::cout << "after\n";
-	for (auto& p : cudaPVector) {
-		CPUPrintVec3C(p.m_ForceAccumulator);
-	}
-	std::cout << std::endl << std::endl << std::endl;
 	
 
 
