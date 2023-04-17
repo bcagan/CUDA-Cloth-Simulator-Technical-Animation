@@ -39,7 +39,7 @@ static bool* bVector;
 #define FRICTION 0.5f
 
 //Cloth and spatial grid parameters
-const int radius = 30;
+const int radius = 3;
 const int diameter = 2 * radius + 1;
 const int gridDivisions = diameter / 6;
 
@@ -68,7 +68,7 @@ double dist = 7.5/2.0;
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
-	bool** bVector);
+	bool** bVector, const int radius, const int diameter);
 
 Vector3f Vec3ToVector3f(Vec3 v) {
 	return make_vector(v.x, v.y, v.z);
@@ -120,7 +120,7 @@ Cloth::Cloth() {
 	int sceneSetting = 0; //Faster way of choosing var. presets
 
 	if (sceneSetting == 0) { //Spheres
-		spheresOn = true;
+		spheresOn = false;
 		clothOption = 0;
 		pin = true;
 		sidePin = false;
@@ -190,8 +190,8 @@ Cloth::Cloth() {
 		}
 	}
 
-	float stretchTearFactor = 2.f;
-	float shearTearFactor = 2.f*sqrt(2);
+	float stretchTearFactor = 4.f;// 2.f;
+	float shearTearFactor = 4.f;// 2.f * sqrt(2);
 	float bendTearFactor = 4.f;
 	//Stretch and bend Forces
 	for (int i = 0; i < diameter; i++) {
@@ -257,7 +257,7 @@ Cloth::Cloth() {
 			cudaFVector.push_back(std::make_pair(diameter* (ioffset)+koffset, diameter* (ioffset - 1) + koffset + 1));
 		}
 	}
-
+	
 
 
 	if (spheresOn) {
@@ -334,7 +334,7 @@ void Cloth::simulation_step(){
 	
 	
 
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &bVector);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &bVector, radius, diameter);
 	size_t tornLen = fVector.size();
 
 
@@ -401,6 +401,10 @@ void Cloth::euler_step(Integrator integrator){
 }
 
 
+void CPUPrintVec3C(Vec3 v) {
+	std::cout << v.x << " " << v.y << " " << v.z << std::endl;
+}
+
 
 
 void Cloth::cpu_simulate() {
@@ -413,6 +417,12 @@ void Cloth::cpu_simulate() {
 		float x = pos.x; float y = pos.y; float z = pos.z;
 		return 7.f * (cos(tclock * 10.f) + 1.f) * abs(sin(z + tclock * 5) + cos(y + tclock * 5) / 3.f);
 	};
+
+
+	std::cout << "before\n";
+	for (auto& p : cudaPVector) {
+		CPUPrintVec3C(p.m_ForceAccumulator);
+	}
 
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
@@ -431,7 +441,7 @@ void Cloth::cpu_simulate() {
 				SpringForce collideForce(&pMini, &tempSphereParticle, (2.f + radius / 40.f) * s.radius,
 					ks != 0.f && ks < 50 ? springConstSphere * (5.8f / (sqrt(ks))) : springConstSphere, //scale sphere ks to allow functioning at lower cloth ks's (10-50)
 					(2.f + radius / 40.f) * s.radius, 0, 0, INFINITY); //Cannot find a good values for ks < 10
-				collideForce.apply_force(); //Distance const scaled by radii to avoid clipping
+				//collideForce.apply_force(); //Distance const scaled by radii to avoid clipping
 			}
 		}
 
@@ -440,7 +450,7 @@ void Cloth::cpu_simulate() {
 			Vec3 frictionVelVector = Vec3(-pMini.m_Velocity.x, 0.f, -pMini.m_Velocity.z);
 			Vec3 frictionVector = vecNormalize(frictionVelVector);
 			float frictionVel = vecNorm(frictionVelVector);
-			pMini.m_ForceAccumulator = pMini.m_ForceAccumulator +  frictionVelVector * FRICTION;
+			//pMini.m_ForceAccumulator = pMini.m_ForceAccumulator +  frictionVelVector * FRICTION;
 		}
 	}
 	auto particle_end = std::chrono::high_resolution_clock::now();
@@ -463,6 +473,11 @@ void Cloth::cpu_simulate() {
 		}
 	}
 	
+	std::cout << "after\n";
+	for (auto& p : cudaPVector) {
+		CPUPrintVec3C(p.m_ForceAccumulator);
+	}
+	std::cout << std::endl << std::endl << std::endl;
 	
 
 

@@ -53,8 +53,6 @@ extern struct Sphere
 #define FRICTION 0.5f
 
 //Cloth and spatial grid parameters
-const extern int radius = 30;
-const extern int diameter = 2*radius + 1;
 const extern int gridDivisions;
 
 //Global parameters
@@ -124,6 +122,8 @@ __device__ void clearForce(SubParticle* p)
 }
 
 
+//Something is incorrect here
+
 __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear)
 {
 	Vec3 p1 = m_p1->m_Position;
@@ -131,7 +131,7 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, float m_ks, fl
 	Vec3 p1mp2 = p1 - p2; 
 	float pdist = vecNorm(p1mp2);
 	Vec3 v1mv2 = m_p1->m_Velocity - m_p2->m_Velocity;
-	float firstFactorF = m_ks * (pdist - m_dist); //and here
+	float firstFactorF = m_ks * (pdist - m_dist); 
 	Vec3 f1 = Vec3(0.f);
 	if (pdist != 0) {
 		f1 = Vec3(-1.f) * (Vec3(firstFactorF) + Vec3(m_kd * (dot(v1mv2, p1mp2)) / pdist)) * (p1mp2 / pdist);
@@ -155,9 +155,9 @@ __device__ SpringForce::SpringForce(SubParticle* p1, SubParticle* p2, float dist
 
 
 
-__global__ void forceRoutine(std::pair<int, int>* fVector, bool* bVector, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
+__global__ void forceRoutine(std::pair<int, int>* fVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	if (index >= fLength) return;
+	if (index >= start + fLength || index < start) return;
 	if (bVector[index]) return;
 	std::pair<int, int> f = fVector[index];
 	float cudaTearFactor = 4.f;
@@ -209,11 +209,14 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 	}
 }
 
+void CPUPrintVec3 (Vec3 v) {
+	std::cout << v.x << " " << v.y << " " << v.z << std::endl;
+}
 
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int,int>>* fVector,
-	bool** bVector) {
+	bool** bVector, const int radius, const int diameter) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
 
@@ -231,6 +234,12 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	auto overhead1_end = std::chrono::high_resolution_clock::now();
 
+
+	for (auto& p : *pVector) {
+		CPUPrintVec3(p.m_ForceAccumulator);
+	}
+	std::cout << std::endl << std::endl << std::endl;
+
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
 	particleRoutine CUDA_KERNEL(numBlocksParticles,blockSize1d) (devSVec,sVector.size(), devPVec,pVector->size(),tclock,windOn,ks,springConstSphere);
@@ -240,12 +249,19 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	auto f_start = std::chrono::high_resolution_clock::now();
 	//Apply spring forces and tearing if need be
-	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devBVec, fVector->size(), tearing, devPVec, ks, kd,dist);
+	for (int i = 0; i < fVector->size(); i++) {
+		forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devBVec, i, 1, tearing, devPVec, ks, kd, dist);
+	}
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
 	auto f_end = std::chrono::high_resolution_clock::now();
 
+
+	for (auto& p : *pVector) {
+		CPUPrintVec3(p.m_ForceAccumulator);
+	}
+	std::cout << std::endl << std::endl << std::endl;
 
 	auto overhead2_start = std::chrono::high_resolution_clock::now();
 
