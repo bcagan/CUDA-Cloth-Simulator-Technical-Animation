@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-//#define VERBOSE
+#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -163,6 +163,31 @@ __device__ SpringForce::SpringForce(SubParticle* p1, SubParticle* p2, float dist
 
 //Cuda Algorithms
 
+__global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt, bool sidePin, bool pin, int diameter) {
+
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if (index >= pLength) return;
+
+
+
+	SubParticle* p = &pVector[index];
+	//Pin corners
+	if (pin) {
+		if (index == 0 || index == diameter - 1 || index == (diameter * diameter) - 1 || index == diameter * (diameter - 1)) {
+			p->m_ForceAccumulator = Vec3(0.f);
+		}
+	}
+	else if (sidePin) {
+		//Pin a whole side of the cloth
+		if (index < diameter) {
+			p->m_ForceAccumulator = Vec3(0.f);
+		}
+	}
+
+
+	p->m_Velocity = p->m_Velocity*DAMP + p->m_ForceAccumulator * dt*DAMP;
+	p->m_Position += p->m_Velocity*dt;
+}
 
 
 __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<Vec3,Vec3>* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
@@ -180,11 +205,16 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<Vec3,Vec3>*
 
 
 __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pVector, 
-	size_t pLength, float tclock, bool windOn, float ks, float springConstSphere, int radius) {
+	size_t pLength, float tclock, bool windOn, float ks, float springConstSphere, int radius, float dt) {
 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= pLength) return;
 	SubParticle* p = &pVector[index];
+
+	//Clipping check moved to start of loop instead of end in CUDA
+	if (p->m_Position.y < EPS + GRA*dt) { //EPS used to avoid z-fighting  
+		p->m_Position = Vec3(p->m_Position.x, EPS + GRA * dt, p->m_Position.z);
+	}
 
 	//Wind force information
 	Vec3 windDir = Vec3(1.f, 0.f, 0.f);
@@ -227,27 +257,23 @@ void CPUPrintVec3 (Vec3 v) {
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int,int>>* fVector,
-	bool** bVector, const int radius, const int diameter) {
+	bool** bVector, const int radius, const int diameter, float dt) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
 
 
-	auto pvectime = std::chrono::high_resolution_clock::now();
 
 	// 2D block for particle calculations
 	const int blockSize1d = 128;
 	int numBlocksParticles = (pVector->size() + blockSize1d - 1) / blockSize1d;
 	int numBlocksForces = (fVector->size() + blockSize1d - 1) / blockSize1d;
 
-	auto overhead1_start = std::chrono::high_resolution_clock::now();
 
 	clothInit(*pVector, *fVector, sVector,*bVector);
 
-	auto overhead1_end = std::chrono::high_resolution_clock::now();
-
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
-	particleRoutine CUDA_KERNEL(numBlocksParticles,blockSize1d) (devSVec,sVector.size(), devPVec,pVector->size(),tclock,windOn,ks,springConstSphere,radius);
+	particleRoutine CUDA_KERNEL(numBlocksParticles,blockSize1d) (devSVec,sVector.size(), devPVec,pVector->size(),tclock,windOn,ks,springConstSphere,radius, dt);
 	auto particle_end = std::chrono::high_resolution_clock::now();
 
 	auto f_start = std::chrono::high_resolution_clock::now();
@@ -269,40 +295,25 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	}
 	auto f_end = std::chrono::high_resolution_clock::now();
 
-	auto overhead2_start = std::chrono::high_resolution_clock::now();
 
 	cudaFree(devFVec);
-	cudaFree(devPVec);
 	cudaFree(devSVec);
 	cudaFree(devBVec);
 
 
-	auto overhead2_end = std::chrono::high_resolution_clock::now();
+	auto inter_start = std::chrono::high_resolution_clock::now();
+	//To minimize memory usage, only symplectic is supported on CUDA
+	//Push updated pVector back for euler integration
+	cudaMemcpy(devPVec, pVector->data(), pVector->size() * sizeof(SubParticle), cudaMemcpyHostToDevice);
+
+	symplecticRoutine CUDA_KERNEL(numBlocksParticles, blockSize1d) (devPVec,pVector->size(),dt,sidePin,pin,diameter);
+	
+	//Copy integrated data back to CPU from device
+	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
+	auto inter_end = std::chrono::high_resolution_clock::now();
 
 
-	//Pin corners
-	if (pin) {
-		(*pVector)[0].m_ForceAccumulator.x = 0.f;
-		(*pVector)[0].m_ForceAccumulator.y = 0.f;
-		(*pVector)[0].m_ForceAccumulator.z = 0.f;
-		(*pVector)[diameter - 1].m_ForceAccumulator.x = 0.f;
-		(*pVector)[diameter - 1].m_ForceAccumulator.y = 0.f;
-		(*pVector)[diameter - 1].m_ForceAccumulator.z = 0.f;
-		(*pVector)[(diameter * diameter) - 1].m_ForceAccumulator.x = 0.f;
-		(*pVector)[(diameter * diameter) - 1].m_ForceAccumulator.y = 0.f;
-		(*pVector)[(diameter * diameter) - 1].m_ForceAccumulator.z = 0.f;
-		(*pVector)[diameter * (diameter - 1)].m_ForceAccumulator.x = 0.f;
-		(*pVector)[diameter * (diameter - 1)].m_ForceAccumulator.y = 0.f;
-		(*pVector)[diameter * (diameter - 1)].m_ForceAccumulator.z = 0.f;
-	}
-	else if (sidePin) {
-		//Pin a whole side of the cloth
-		for (size_t i = 0; i < diameter; i++) {
-			(*pVector)[i].m_ForceAccumulator.x = 0.f;
-			(*pVector)[i].m_ForceAccumulator.y = 0.f;
-			(*pVector)[i].m_ForceAccumulator.z = 0.f;
-		}
-	}
+	cudaFree(devPVec);
 
 	auto end_t = std::chrono::high_resolution_clock::now();
 #ifdef VERBOSE
@@ -311,14 +322,9 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	std::chrono::duration<double>  dif_t = end_t - start_t;
 	std::chrono::duration<double>  particle_dif = particle_end - particle_start;
 	std::chrono::duration<double>  f_dif = f_end - f_start;
-	std::chrono::duration<double>  pvecdif = pvectime - start_t;
-	std::chrono::duration<double>  overhead1 = overhead1_end - overhead1_start;
-	std::chrono::duration<double>  overhead2 = overhead2_end - overhead2_start;
-	std::cout << "TIme to change pointers " << pvecdif.count() << std::endl;
-	std::cout << "overhead 1 " << overhead1.count() << std::endl; //Issue
-	std::cout << "overhead 2 " << overhead2.count() << std::endl;
+	std::chrono::duration<double>  inter_dif = inter_end - inter_start;
 	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
-		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\nTotal: " << dif_t.count() << std::endl;
+		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\n Integration: " << inter_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
 #endif //  VERBOSE
 
 

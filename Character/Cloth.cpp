@@ -68,7 +68,7 @@ double dist = 7.5/2.0;
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
-	bool** bVector, const int radius, const int diameter);
+	bool** bVector, const int radius, const int diameter, float dt);
 
 Vector3f Vec3ToVector3f(Vec3 v) {
 	return make_vector(v.x, v.y, v.z);
@@ -117,7 +117,7 @@ Cloth::Cloth() {
 	//Verlet might have an incorrect implementation. It doesn't explode like forward but it tends to twist quite heavily.
 
 
-	int sceneSetting = 0; //Faster way of choosing var. presets
+	int sceneSetting = 3; //Faster way of choosing var. presets
 
 	if (sceneSetting == 0) { //Spheres
 		spheresOn = true;
@@ -308,6 +308,10 @@ void Cloth::draw(){
 
 		size = fVector.size();
 		for (int ii = 0; ii < size; ii++) {
+#ifdef CUDA
+			if(bVector[ii]) continue;
+#endif // CUDA
+
 			fVector[ii]->draw();
 		}
 	}
@@ -331,13 +335,7 @@ void Cloth::simulation_step(){
 
 
 #ifdef CUDA
-	
-	
-
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &bVector, radius, diameter);
-	size_t tornLen = fVector.size();
-
-
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &bVector, radius, diameter, dt);
 #endif // CUDA
 
 #ifndef CUDA
@@ -345,20 +343,7 @@ void Cloth::simulation_step(){
 #endif // !CUDA
 
 
-	if (!stepAhead) {
-
-		//Move BOTH of these to CPU and cuda. BOTH can be run on gpu since both are parallel over each CPU!
-
-		//Then, we can move forward
-		euler_step(integratorSet);
-
-		//Floor collision
-		for (auto& p : cudaPVector) {
-			if (p.m_Position.y < EPS) { //EPS used to avoid z-fighting
-				p.m_Position = Vec3(p.m_Position.x, EPS, p.m_Position.z);
-			}
-		}
-	}
+	
 
 
 }
@@ -483,6 +468,18 @@ void Cloth::cpu_simulate() {
 		//Pin a whole side of the cloth
 		for (size_t i = 0; i < diameter; i++) {
 			cudaPVector[i].m_ForceAccumulator = Vec3(0.f, 0.f, 0.f);
+		}
+	}
+
+
+	if (!stepAhead) {
+		//Then, we can move forward
+		euler_step(integratorSet);
+		//Floor collision
+		for (auto& p : cudaPVector) {
+			if (p.m_Position.y < EPS) { //EPS used to avoid z-fighting
+				p.m_Position = Vec3(p.m_Position.x, EPS, p.m_Position.z);
+			}
 		}
 	}
 
