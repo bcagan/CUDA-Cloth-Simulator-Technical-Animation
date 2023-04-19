@@ -10,7 +10,8 @@
 
 #define VERBOSE
 
-
+float totalTime = 0.f;
+int numFrames = 0;
 struct Sphere
 {
 	float radius = 0.f;
@@ -41,7 +42,7 @@ static bool* bVector;
 #define FRICTION 0.5f
 
 //Cloth and spatial grid parameters
-const int radius = 4;
+const int radius =30;
 const int diameter = 2 * radius + 1;
 const int gridDivisions = diameter / 6;
 
@@ -71,7 +72,9 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
-	bool** bVector, const int radius, const int diameter, float dt);
+	bool** bVector, const int radius, const int diameter, float dt, bool start);
+void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize);
+void devFree();
 
 Vector3f Vec3ToVector3f(Vec3 v) {
 	return make_vector(v.x, v.y, v.z);
@@ -120,7 +123,7 @@ Cloth::Cloth() {
 	//Verlet might have an incorrect implementation. It doesn't explode like forward but it tends to twist quite heavily.
 
 
-	int sceneSetting = 3; //Faster way of choosing var. presets
+	int sceneSetting = 0; //Faster way of choosing var. presets
 
 	if (sceneSetting == 0) { //Spheres
 		spheresOn = true;
@@ -302,7 +305,7 @@ Cloth::Cloth() {
 	}
 	bVector = (bool*)calloc(fVector.size(), sizeof(bool));
 
-
+	cudaInit(pVector.size(), fVector.size(), sVector.size());
 }
 
 Cloth::~Cloth(){
@@ -311,6 +314,7 @@ Cloth::~Cloth(){
 	cudaFVector.clear();
 	pVector.clear();
 	fVector.clear();
+	devFree();
 }
 
 void Cloth::reset(){
@@ -358,7 +362,7 @@ void Cloth::simulation_step(){
 
 
 #ifdef CUDA
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, &bVector, radius, diameter, dt);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, &bVector, radius, diameter, dt,true);
 #endif // CUDA
 
 #ifndef CUDA
@@ -515,5 +519,9 @@ void Cloth::cpu_simulate() {
 	std::chrono::duration<double>  f_dif = f_end - f_start;
 	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() << 
 		"\n" << "Forces and Tearing: " << f_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
+	totalTime += dif_t.count();
+	numFrames++;
+	std::cout << "Average total: " << totalTime / (float)numFrames << std::endl;
+
 #endif //  VERBOSE
 }

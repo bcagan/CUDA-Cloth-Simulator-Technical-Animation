@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-//#define VERBOSE
+#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -51,7 +51,7 @@ extern struct Sphere
 #define EPS 0.001f
 #define GRA 9.8f
 #define FRICTION 0.5f
-#define MAX_FORCE_PART 16
+#define MAX_FORCE_PART 12
 
 //Cloth and spatial grid parameters
 const extern int gridDivisions;
@@ -74,7 +74,8 @@ extern float sphereRadius;
 extern bool randHeight;
 extern double dist;
 
-
+float cudaTotalTime = 0.f;
+int cudaNumFrames = 0;
 
 //CUDA Data and related helper functions
 static SubParticle* devPVec = NULL;
@@ -84,29 +85,44 @@ static std::pair<int, int>* devFOrderVec = NULL;
 static Vec3* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
-void clothInit(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, bool* bVec) {
-	cudaMalloc(&devPVec, pVec.size() * sizeof(SubParticle));
-	cudaMemset(&devPVec, 0, pVec.size() * sizeof(SubParticle));
+void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
+	cudaMalloc(&devPVec, pVecSize * sizeof(SubParticle));
+	cudaMemset(&devPVec, 0, pVecSize * sizeof(SubParticle));
+
+	cudaMalloc(&devFOrderVec, fVecSize * sizeof(std::pair<int, int>));
+	cudaMemset(&devFOrderVec, 0, fVecSize * sizeof(std::pair<int, int>));
+
+	cudaMalloc(&devFVec, fVecSize * sizeof(std::pair<int, int>));
+	cudaMemset(&devFVec, 0, fVecSize * sizeof(std::pair<int, int>));
+
+	cudaMalloc(&devSVec, sVecSize * sizeof(Sphere));
+	cudaMemset(&devSVec, 0, sVecSize * sizeof(Sphere));
+
+	cudaMalloc(&devBVec, fVecSize * sizeof(bool));
+	cudaMemset(&devBVec, 0, fVecSize * sizeof(bool));
+
+	cudaMalloc(&devFAccumalateVec, pVecSize * MAX_FORCE_PART * sizeof(Vec3));
+	cudaMemset(&devFAccumalateVec, 0, pVecSize * MAX_FORCE_PART * sizeof(Vec3));
+}
+
+void cudaLoad(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, bool* bVec) {
+
 	cudaMemcpy(devPVec, pVec.data(), pVec.size() * sizeof(SubParticle), cudaMemcpyHostToDevice);
-
-	cudaMalloc(&devFOrderVec, fVec.size() * sizeof(std::pair<int, int>));
-	cudaMemset(&devFOrderVec, 0, fVec.size() * sizeof(std::pair<int, int>));
 	cudaMemcpy(devFOrderVec, fOrderVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
-
-	cudaMalloc(&devFVec, fVec.size() * sizeof(std::pair<int, int>));
-	cudaMemset(&devFVec, 0, fVec.size() * sizeof(std::pair<int, int>));
 	cudaMemcpy(devFVec, fVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
-
-	cudaMalloc(&devSVec, sVec.size() * sizeof(Sphere));
-	cudaMemset(&devSVec, 0, sVec.size() * sizeof(Sphere));
 	cudaMemcpy(devSVec, sVec.data(), sVec.size() * sizeof(Sphere), cudaMemcpyHostToDevice);
-
-	cudaMalloc(&devBVec, fVec.size() * sizeof(bool));
-	cudaMemset(&devBVec, 0, fVec.size() * sizeof(bool));
 	cudaMemcpy(&devBVec, bVec, fVec.size() * sizeof(bool), cudaMemcpyHostToDevice);
+}
 
-	cudaMalloc(&devFAccumalateVec, pVec.size() * MAX_FORCE_PART * sizeof(Vec3));
-	cudaMemset(&devFAccumalateVec, 0, pVec.size() * MAX_FORCE_PART * sizeof(Vec3));
+
+void devFree() {
+	cudaFree(devFVec);
+	cudaFree(devSVec);
+	cudaFree(devBVec);
+	cudaFree(devPVec);
+	cudaFree(devFAccumalateVec);
+	cudaFree(devFOrderVec);
+
 }
 
 
@@ -184,7 +200,7 @@ __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt
 		}
 	}
 	else if (sidePin) {
-		//Pin a whole side of the cloth
+		//PpVin a whole side of the cloth
 		if (index < diameter) {
 			p->m_ForceAccumulator = Vec3(0.f);
 		}
@@ -195,6 +211,15 @@ __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt
 	p->m_Position += p->m_Velocity*dt;
 }
 
+__global__ void sumForceRoutine(Vec3* accVector, SubParticle* pVector, size_t pLength) {
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if (index >= pLength) return;
+	Vec3 acc = 0.f;
+	for (int i = 0; i < MAX_FORCE_PART; i++) {
+		acc += accVector[MAX_FORCE_PART * index + i];
+	}
+	pVector[index].m_ForceAccumulator += acc;
+}
 
 __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* fOrderVector, Vec3* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -266,7 +291,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
-	bool** bVector, const int radius, const int diameter, float dt) {
+	bool** bVector, const int radius, const int diameter, float dt, bool start) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
 
@@ -277,8 +302,11 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	int numBlocksParticles = (pVector->size() + blockSize1d - 1) / blockSize1d;
 	int numBlocksForces = (fVector->size() + blockSize1d - 1) / blockSize1d;
 
-
-	clothInit(*pVector, *fVector, *fOrderVector, sVector,*bVector);
+	//Since data is retained on GPU, only need to load once
+	if (start) {
+		cudaLoad(*pVector, *fVector, *fOrderVector, sVector, *bVector);
+		start = false;
+	}
 
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
@@ -288,40 +316,20 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	auto f_start = std::chrono::high_resolution_clock::now();
 	//Apply spring forces and tearing if need be
 	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devFOrderVec, devFAccumalateVec, devBVec, 0,fVector->size(), tearing, devPVec, ks, kd, dist);
-	//Copy results
-	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
-	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
-	std::vector<Vec3> fAccumulateRet(MAX_FORCE_PART * pVector->size());
-	cudaMemcpy(fAccumulateRet.data(), devFAccumalateVec, pVector->size() * MAX_FORCE_PART * sizeof(Vec3), cudaMemcpyDeviceToHost);
-	//Accumulate results
-	for (int i = 0; i < pVector->size(); i++) {
-		for (int j = 0; j < MAX_FORCE_PART; j++) {
-			(*pVector)[i].m_ForceAccumulator.x += fAccumulateRet[MAX_FORCE_PART * i + j].x;
-			(*pVector)[i].m_ForceAccumulator.y += fAccumulateRet[MAX_FORCE_PART * i + j].y;
-			(*pVector)[i].m_ForceAccumulator.z += fAccumulateRet[MAX_FORCE_PART * i + j].z;
-		}
-	}
+	sumForceRoutine CUDA_KERNEL(numBlocksParticles, blockSize1d) (devFAccumalateVec, devPVec, pVector->size());
 	auto f_end = std::chrono::high_resolution_clock::now();
-
-
-	cudaFree(devFVec);
-	cudaFree(devSVec);
-	cudaFree(devBVec);
 
 
 	auto inter_start = std::chrono::high_resolution_clock::now();
 	//To minimize memory usage, only symplectic is supported on CUDA
-	//Push updated pVector back for euler integration
-	cudaMemcpy(devPVec, pVector->data(), pVector->size() * sizeof(SubParticle), cudaMemcpyHostToDevice);
-
-	symplecticRoutine CUDA_KERNEL(numBlocksParticles, blockSize1d) (devPVec,pVector->size(),dt,sidePin,pin,diameter);
-	
+	symplecticRoutine CUDA_KERNEL(numBlocksParticles, blockSize1d) (devPVec, pVector->size(), dt, sidePin, pin, diameter);
 	//Copy integrated data back to CPU from device
-	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	auto inter_end = std::chrono::high_resolution_clock::now();
 
 
-	cudaFree(devPVec);
+	//Copy results
+	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
+	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
 
 	auto end_t = std::chrono::high_resolution_clock::now();
 #ifdef VERBOSE
@@ -333,6 +341,9 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	std::chrono::duration<double>  inter_dif = inter_end - inter_start;
 	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
 		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\n Integration: " << inter_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
+	cudaTotalTime += dif_t.count();
+	cudaNumFrames++;
+	std::cout << "Average total: " << cudaTotalTime / (float)cudaNumFrames << std::endl;
 #endif //  VERBOSE
 
 
