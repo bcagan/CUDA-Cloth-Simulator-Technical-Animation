@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-#define VERBOSE
+//#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -51,6 +51,7 @@ extern struct Sphere
 #define EPS 0.001f
 #define GRA 9.8f
 #define FRICTION 0.5f
+#define MAX_FORCE_PART 16
 
 //Cloth and spatial grid parameters
 const extern int gridDivisions;
@@ -79,13 +80,18 @@ extern double dist;
 static SubParticle* devPVec = NULL;
 static Sphere* devSVec = NULL;
 static std::pair<int, int>* devFVec = NULL;
-static std::pair<Vec3, Vec3>* devFAccumalateVec = NULL;
+static std::pair<int, int>* devFOrderVec = NULL;
+static Vec3* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
-void clothInit(std::vector<SubParticle> pVec, std::vector<std::pair<int,int>> fVec, std::vector<Sphere> sVec, bool* bVec) {
+void clothInit(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, bool* bVec) {
 	cudaMalloc(&devPVec, pVec.size() * sizeof(SubParticle));
 	cudaMemset(&devPVec, 0, pVec.size() * sizeof(SubParticle));
 	cudaMemcpy(devPVec, pVec.data(), pVec.size() * sizeof(SubParticle), cudaMemcpyHostToDevice);
+
+	cudaMalloc(&devFOrderVec, fVec.size() * sizeof(std::pair<int, int>));
+	cudaMemset(&devFOrderVec, 0, fVec.size() * sizeof(std::pair<int, int>));
+	cudaMemcpy(devFOrderVec, fOrderVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
 
 	cudaMalloc(&devFVec, fVec.size() * sizeof(std::pair<int, int>));
 	cudaMemset(&devFVec, 0, fVec.size() * sizeof(std::pair<int, int>));
@@ -99,8 +105,8 @@ void clothInit(std::vector<SubParticle> pVec, std::vector<std::pair<int,int>> fV
 	cudaMemset(&devBVec, 0, fVec.size() * sizeof(bool));
 	cudaMemcpy(&devBVec, bVec, fVec.size() * sizeof(bool), cudaMemcpyHostToDevice);
 
-	cudaMalloc(&devFAccumalateVec, fVec.size() * sizeof(std::pair<Vec3, Vec3>));
-	cudaMemset(&devFAccumalateVec, 0, fVec.size() * sizeof(std::pair<Vec3, Vec3>));
+	cudaMalloc(&devFAccumalateVec, pVec.size() * MAX_FORCE_PART * sizeof(Vec3));
+	cudaMemset(&devFAccumalateVec, 0, pVec.size() * MAX_FORCE_PART * sizeof(Vec3));
 }
 
 
@@ -190,13 +196,15 @@ __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt
 }
 
 
-__global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<Vec3,Vec3>* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
+__global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* fOrderVector, Vec3* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= start + fLength || index < start) return;
 	if (bVector[index]) return;
 	std::pair<int, int> f = fVector[index];
 	float cudaTearFactor = 4.f;
-	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[index].first), &(accVector[index].second),ks, kd, dist, cudaTearFactor, &(bVector[index]), true, false);
+	int accInd1 = MAX_FORCE_PART * f.first + (fOrderVector[index]).first;
+	int accInd2 = MAX_FORCE_PART * f.second + (fOrderVector[index]).second;
+	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, dist, cudaTearFactor, &(bVector[index]), true, false);
 	if (!tearing) {
 		bVector[index] = false;
 	}
@@ -256,7 +264,8 @@ void CPUPrintVec3 (Vec3 v) {
 
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
-	static std::vector<std::pair<int,int>>* fVector,
+	static std::vector<std::pair<int, int>>* fVector,
+	static std::vector<std::pair<int, int>>* fOrderVector,
 	bool** bVector, const int radius, const int diameter, float dt) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
@@ -269,7 +278,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	int numBlocksForces = (fVector->size() + blockSize1d - 1) / blockSize1d;
 
 
-	clothInit(*pVector, *fVector, sVector,*bVector);
+	clothInit(*pVector, *fVector, *fOrderVector, sVector,*bVector);
 
 	auto particle_start = std::chrono::high_resolution_clock::now();
 	//Clear force accumulators for all particles and then apply gravity and then wind and sphere forces
@@ -278,20 +287,19 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	auto f_start = std::chrono::high_resolution_clock::now();
 	//Apply spring forces and tearing if need be
-	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devFAccumalateVec, devBVec, 0,fVector->size(), tearing, devPVec, ks, kd, dist);
+	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devFOrderVec, devFAccumalateVec, devBVec, 0,fVector->size(), tearing, devPVec, ks, kd, dist);
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
-	std::vector<std::pair<Vec3, Vec3>> fAccumulateRet(fVector->size());
-	cudaMemcpy(fAccumulateRet.data(), devFAccumalateVec, fVector->size() * sizeof(std::pair<Vec3, Vec3>), cudaMemcpyDeviceToHost);
+	std::vector<Vec3> fAccumulateRet(MAX_FORCE_PART * pVector->size());
+	cudaMemcpy(fAccumulateRet.data(), devFAccumalateVec, pVector->size() * MAX_FORCE_PART * sizeof(Vec3), cudaMemcpyDeviceToHost);
 	//Accumulate results
-	for (int i = 0; i < fVector->size(); i++) {
-		(*pVector)[(*fVector)[i].first].m_ForceAccumulator.x += fAccumulateRet[i].first.x;
-		(*pVector)[(*fVector)[i].first].m_ForceAccumulator.y += fAccumulateRet[i].first.y;
-		(*pVector)[(*fVector)[i].first].m_ForceAccumulator.z += fAccumulateRet[i].first.z;
-		(*pVector)[(*fVector)[i].second].m_ForceAccumulator.x += fAccumulateRet[i].second.x;
-		(*pVector)[(*fVector)[i].second].m_ForceAccumulator.y += fAccumulateRet[i].second.y;
-		(*pVector)[(*fVector)[i].second].m_ForceAccumulator.z += fAccumulateRet[i].second.z;
+	for (int i = 0; i < pVector->size(); i++) {
+		for (int j = 0; j < MAX_FORCE_PART; j++) {
+			(*pVector)[i].m_ForceAccumulator.x += fAccumulateRet[MAX_FORCE_PART * i + j].x;
+			(*pVector)[i].m_ForceAccumulator.y += fAccumulateRet[MAX_FORCE_PART * i + j].y;
+			(*pVector)[i].m_ForceAccumulator.z += fAccumulateRet[MAX_FORCE_PART * i + j].z;
+		}
 	}
 	auto f_end = std::chrono::high_resolution_clock::now();
 

@@ -6,9 +6,10 @@
 
 #include <chrono>
 
-//#define CUDA
+#define CUDA
 
 #define VERBOSE
+
 
 struct Sphere
 {
@@ -29,6 +30,7 @@ static std::vector<Particle*> pVector;
 static std::vector<SubParticle> cudaPVector;
 static std::vector<Force*> fVector;
 static std::vector<std::pair<int, int>> cudaFVector;
+static std::vector<std::pair<int, int>> cudaFOrderVector;
 static bool* bVector;
 
 //Consts
@@ -39,7 +41,7 @@ static bool* bVector;
 #define FRICTION 0.5f
 
 //Cloth and spatial grid parameters
-const int radius = 30;
+const int radius = 4;
 const int diameter = 2 * radius + 1;
 const int gridDivisions = diameter / 6;
 
@@ -68,6 +70,7 @@ double dist = 7.5/2.0;
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
+	static std::vector<std::pair<int, int>>* fOrderVector,
 	bool** bVector, const int radius, const int diameter, float dt);
 
 Vector3f Vec3ToVector3f(Vec3 v) {
@@ -190,6 +193,8 @@ Cloth::Cloth() {
 		}
 	}
 
+	std::vector<int> curForce(cudaPVector.size());
+
 	float stretchTearFactor = 4.f;// 2.f;
 	float shearTearFactor = 4.f;// 2.f * sqrt(2);
 	float bendTearFactor = 4.f;
@@ -201,22 +206,30 @@ Cloth::Cloth() {
 				fVector.push_back(new SpringForce(&(cudaPVector[diameter * i + k]), &(cudaPVector[(diameter * (i + 1) + k)]),
 					dist, ks, kd, diameter * i + k, (diameter * (i + 1) + k), i, k, stretchTearFactor));
 				cudaFVector.push_back(std::make_pair(diameter * i + k, (diameter * (i + 1) + k)));
+				cudaFOrderVector.push_back(std::make_pair(curForce[diameter * i + k], curForce[(diameter * (i + 1) + k)]));
+				curForce[diameter * i + k]++; curForce[(diameter * (i + 1) + k)]++;
 			}
 			if (k != diameter - 1){
 				fVector.push_back(new SpringForce(&(cudaPVector[diameter * i + k]), &(cudaPVector[diameter * i + (k + 1)]),
 					dist, ks, kd, diameter * i + k, diameter * i + (k + 1), i, k, stretchTearFactor));
 				cudaFVector.push_back(std::make_pair(diameter * i + k, diameter * i + (k + 1)));
+				cudaFOrderVector.push_back(std::make_pair(curForce[diameter * i + k], curForce[(diameter * i + (k + 1))]));
+				curForce[diameter * i + k]++; curForce[diameter * i + (k + 1)]++;
 			}
 			//bend
 			if (i != diameter - 2 && i < diameter - 1) {
 				fVector.push_back(new SpringForce(&(cudaPVector[diameter * i + k]), &(cudaPVector[(diameter * (i + 2) + k)]),
 					dist * 2.f, ks / 2.f, kd * 2.f, diameter * i + k, diameter * (i + 2) + k, i, k, bendTearFactor));
 				cudaFVector.push_back(std::make_pair(diameter * i + k, diameter * (i + 2) + k));
+				cudaFOrderVector.push_back(std::make_pair(curForce[diameter * i + k], curForce[(diameter * (i + 2) + k)]));
+				curForce[diameter * i + k]++; curForce[(diameter * (i + 2) + k)]++;
 			}
 			if (k != diameter - 2 && k < diameter - 1) {
 				fVector.push_back(new SpringForce(&(cudaPVector[diameter * i + k]), &(cudaPVector[diameter * i + (k + 2)]),
 					dist * 2.f, ks / 2.f, kd * 2.f, diameter * i + k, diameter * i + (k + 2), i, k, bendTearFactor));
 				cudaFVector.push_back(std::make_pair(diameter * i + k, diameter * i + (k + 2)));
+				cudaFOrderVector.push_back(std::make_pair(curForce[diameter * i + k], curForce[(diameter * i + (k + 2))]));
+				curForce[diameter * i + k]++; curForce[diameter * i + (k + 2)]++;
 			}
 		}
 	}
@@ -228,6 +241,8 @@ Cloth::Cloth() {
 			fVector.push_back(new SpringForce(&(cudaPVector[diameter * (i + offset) + offset]), &(cudaPVector[diameter * (i + offset + 1) + offset + 1]), 
 				dist, ks, kd, diameter * (i + offset) + offset, diameter * (i + offset + 1) + offset + 1, i + offset, offset, shearTearFactor));
 			cudaFVector.push_back(std::make_pair(diameter * (i + offset) + offset, diameter * (i + offset + 1) + offset + 1));
+			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (i + offset) + offset], curForce[diameter * (i + offset + 1) + offset + 1]));
+			curForce[diameter * (i + offset) + offset]++; curForce[diameter * (i + offset + 1) + offset + 1]++;
 		}
 	}
 	//TL->BR from k
@@ -236,6 +251,8 @@ Cloth::Cloth() {
 			fVector.push_back(new SpringForce(&(cudaPVector[diameter * (offset)+k + offset]), &(cudaPVector[diameter * (offset + 1) + k + offset + 1]), 
 				dist, ks, kd, diameter * (offset)+k + offset, diameter * (offset + 1) + k + offset + 1,offset, k + offset, shearTearFactor));
 			cudaFVector.push_back(std::make_pair(diameter* (offset)+k + offset, diameter* (offset + 1) + k + offset + 1));
+			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (offset)+k + offset], curForce[diameter * (offset + 1) + k + offset + 1]));
+			curForce[diameter * (offset)+k + offset]++; curForce[diameter * (offset + 1) + k + offset + 1]++;
 		}
 	}
 	//TR->BL from i
@@ -245,6 +262,8 @@ Cloth::Cloth() {
 			fVector.push_back(new SpringForce(&(cudaPVector[diameter * (offset)+koffset]), &(cudaPVector[diameter * (offset + 1) + koffset - 1]), 
 				dist, ks, kd, diameter * (offset)+koffset, diameter * (offset + 1) + koffset - 1,offset, koffset, shearTearFactor));
 			cudaFVector.push_back(std::make_pair(diameter* (offset)+koffset, diameter* (offset + 1) + koffset - 1));
+			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (offset)+koffset], curForce[diameter * (offset + 1) + koffset - 1]));
+			curForce[diameter * (offset)+koffset]++; curForce[diameter * (offset + 1) + koffset - 1]++;
 		}
 	}
 	//TR->BL from k
@@ -255,6 +274,8 @@ Cloth::Cloth() {
 			fVector.push_back(new SpringForce(&(cudaPVector[diameter * (ioffset)+koffset]), &(cudaPVector[diameter * (ioffset - 1) + koffset + 1]), 
 				dist, ks, kd, diameter* (ioffset)+koffset, diameter* (ioffset - 1) + koffset + 1,ioffset, offset, shearTearFactor));
 			cudaFVector.push_back(std::make_pair(diameter* (ioffset)+koffset, diameter* (ioffset - 1) + koffset + 1));
+			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (ioffset)+koffset], curForce[diameter * (ioffset - 1) + koffset + 1]));
+			curForce[diameter * (ioffset)+koffset]++; curForce[diameter * (ioffset - 1) + koffset + 1]++;
 		}
 	}
 	
@@ -280,6 +301,8 @@ Cloth::Cloth() {
 		sVector.push_back(sphere3);
 	}
 	bVector = (bool*)calloc(fVector.size(), sizeof(bool));
+
+
 }
 
 Cloth::~Cloth(){
@@ -335,7 +358,7 @@ void Cloth::simulation_step(){
 
 
 #ifdef CUDA
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &bVector, radius, diameter, dt);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, &bVector, radius, diameter, dt);
 #endif // CUDA
 
 #ifndef CUDA
