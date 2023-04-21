@@ -6,12 +6,12 @@
 
 #include <chrono>
 
-//#define CUDA
+#define CUDA
 
 #define VERBOSE
 
 
-int sceneSetting = 3; //Faster way of choosing var. presets
+int sceneSetting = 1; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 int numFrames = 0;
@@ -142,7 +142,7 @@ Cloth::Cloth() {
 		clothOption = 0;
 		pin = false;
 		sidePin = true;
-		windOn = false;
+		windOn = true;
 		tearing = false;
 	}
 	else if (sceneSetting == 2) { //Pinned folded
@@ -387,6 +387,7 @@ void Cloth::simulation_step(){
 	cpu_simulate();
 #endif // !CUDA
 
+	tclock += dt;
 
 	/*for (auto& p : cudaPVector) {
 		std::cout << p.m_ForceAccumulator.x << " " << p.m_ForceAccumulator.y << " " << p.m_ForceAccumulator.z << std::endl;
@@ -430,7 +431,6 @@ void Cloth::euler_step(Integrator integrator){
 			p.m_Velocity = p.m_Velocity * DAMP + p.m_ForceAccumulator * dt * DAMP;
 		}
 	}
-	tclock += dt;
 }
 
 

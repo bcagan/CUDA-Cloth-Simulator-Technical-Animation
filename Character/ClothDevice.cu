@@ -255,10 +255,9 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 	float gOffset = -1.0 * GRA;
 	p->m_ForceAccumulator = 
 		p->m_ForceAccumulator + Vec3(0.f, gOffset, 0.f);
-	float gpuMag = GPUWindMagnitude(
-		Vec3(p->m_Position.x * windDir.x, p->m_Position.y * windDir.y, p->m_Position.x * windDir.z), tclock);
+	float gpuMag = GPUWindMagnitude(p->m_Position, tclock);
 	if (windOn) p->m_ForceAccumulator = 
-		p->m_ForceAccumulator + Vec3(gpuMag, gpuMag, gpuMag);
+		p->m_ForceAccumulator + windDir * gpuMag;
 
 
 	if (p->m_Position.y <= 2*EPS) {
