@@ -25,8 +25,8 @@ __device__ void SpringForce::apply_force()
 	auto& dotProduct = [this](Vec3 a, Vec3 b) {
 		return a.x * b.x + a.y * b.y + a.z * b.z;
 	};
-	
-	Vec3 p1 = m_p1->m_Position;
+
+	Vec3 p1 =  m_p1->m_Position;
 	Vec3 p2 = m_p2->m_Position;
 	Vec3 p1mp2 = p1 - p2;
 	float pdist = vecNorm(p1mp2);
@@ -34,7 +34,7 @@ __device__ void SpringForce::apply_force()
 	float firstFactorF = m_ks * (pdist - m_dist);
 	Vec3 f1 = (p1mp2 / pdist) * -1.f* (firstFactorF + m_kd * (dotProduct(v1mv2, p1mp2)) / pdist);
 	Vec3 f2 = f1*-1.f;
-	if (abs(vecNorm(f1)) > m_ks * tearFactor) teared = true;
+	//if (abs(vecNorm(f1)) > m_ks * tearFactor) teared = true;
 	m_p1->m_ForceAccumulator += f1;
 	m_p2->m_ForceAccumulator += f2;
 }

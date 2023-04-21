@@ -65,14 +65,14 @@ extern float springConstSphere;
 extern float collisionDist;
 extern bool windOn;
 extern bool doDrawTriangle;
-extern double ks;
-extern double kd;
 extern bool tearing;
 extern bool stepAhead;
 extern bool spheresOn;
 extern float sphereRadius;
 extern bool randHeight;
 extern double dist;
+extern double ks;
+extern double kd;
 
 float cudaTotalTime = 0.f;
 int cudaNumFrames = 0;
@@ -82,6 +82,7 @@ static SubParticle* devPVec = NULL;
 static Sphere* devSVec = NULL;
 static std::pair<int, int>* devFVec = NULL;
 static std::pair<int, int>* devFOrderVec = NULL;
+static float* devTypeVec = NULL;
 static Vec3* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
@@ -103,15 +104,20 @@ void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
 
 	cudaMalloc(&devFAccumalateVec, pVecSize * MAX_FORCE_PART * sizeof(Vec3));
 	cudaMemset(&devFAccumalateVec, 0, pVecSize * MAX_FORCE_PART * sizeof(Vec3));
+
+	cudaMalloc(&devTypeVec, fVecSize * sizeof(float));
+	cudaMemset(&devTypeVec, 0, fVecSize * sizeof(float));
 }
 
-void cudaLoad(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, bool* bVec) {
+void cudaLoad(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, 
+	std::vector<float> typeVec, bool* bVec) {
 
 	cudaMemcpy(devPVec, pVec.data(), pVec.size() * sizeof(SubParticle), cudaMemcpyHostToDevice);
 	cudaMemcpy(devFOrderVec, fOrderVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
 	cudaMemcpy(devFVec, fVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
 	cudaMemcpy(devSVec, sVec.data(), sVec.size() * sizeof(Sphere), cudaMemcpyHostToDevice);
-	cudaMemcpy(&devBVec, bVec, fVec.size() * sizeof(bool), cudaMemcpyHostToDevice);
+	cudaMemcpy(devBVec, bVec, fVec.size() * sizeof(bool), cudaMemcpyHostToDevice);
+	cudaMemcpy(devTypeVec, typeVec.data(), fVec.size() * sizeof(float), cudaMemcpyHostToDevice);
 }
 
 
@@ -122,7 +128,7 @@ void devFree() {
 	cudaFree(devPVec);
 	cudaFree(devFAccumalateVec);
 	cudaFree(devFOrderVec);
-
+	cudaFree(devTypeVec);
 }
 
 
@@ -148,7 +154,7 @@ __device__ void clearForce(SubParticle* p)
 }
 
 
-
+//this is wrong
 __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce1, Vec3* retForce2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear, bool copy)
 {
 	Vec3 p1 = m_p1->m_Position;
@@ -157,11 +163,8 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce
 	float pdist = vecNorm(p1mp2);
 	Vec3 v1mv2 = m_p1->m_Velocity - m_p2->m_Velocity;
 	float firstFactorF = m_ks * (pdist - m_dist); 
-	Vec3 f1 = Vec3(0.f);
-	if (pdist != 0) {
-		f1 = Vec3(-1.f) * (Vec3(firstFactorF) + Vec3(m_kd * (dot(v1mv2, p1mp2)) / pdist)) * (p1mp2 / pdist);
-	}
-	Vec3 f2 = Vec3(-1.f) * f1;
+	Vec3 f1 =  (p1mp2 / pdist) * -1.f* (firstFactorF + m_kd * (dot(v1mv2, p1mp2)) / pdist);
+	Vec3 f2 = f1 * -1.f;
 	if (testTear && abs(vecNorm(f1)) > m_ks * tearFactor) *teared = true;
 	if (copy) {
 		*retForce1 += f1;
@@ -214,14 +217,13 @@ __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt
 __global__ void sumForceRoutine(Vec3* accVector, SubParticle* pVector, size_t pLength) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= pLength) return;
-	Vec3 acc = 0.f;
 	for (int i = 0; i < MAX_FORCE_PART; i++) {
-		acc += accVector[MAX_FORCE_PART * index + i];
+		pVector[index].m_ForceAccumulator += accVector[MAX_FORCE_PART * index + i];
 	}
-	pVector[index].m_ForceAccumulator += acc;
 }
 
-__global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* fOrderVector, Vec3* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, SubParticle* pVector, float ks, float kd, double dist) {
+__global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* fOrderVector, Vec3* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, 
+	SubParticle* pVector, float ks, float kd, double dist, float* typeVec) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= start + fLength || index < start) return;
 	if (bVector[index]) return;
@@ -229,7 +231,8 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 	float cudaTearFactor = 4.f;
 	int accInd1 = MAX_FORCE_PART * f.first + (fOrderVector[index]).first;
 	int accInd2 = MAX_FORCE_PART * f.second + (fOrderVector[index]).second;
-	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, dist, cudaTearFactor, &(bVector[index]), true, false);
+	float distFactored = typeVec[index] * dist;
+	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), true, false);
 	if (!tearing) {
 		bVector[index] = false;
 	}
@@ -240,14 +243,11 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pVector, 
 	size_t pLength, float tclock, bool windOn, float ks, float springConstSphere, int radius, float dt) {
 
+
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= pLength) return;
 	SubParticle* p = &pVector[index];
 
-	//Clipping check moved to start of loop instead of end in CUDA
-	if (p->m_Position.y < EPS + GRA*dt) { //EPS used to avoid z-fighting  
-		p->m_Position = Vec3(p->m_Position.x, EPS + GRA * dt, p->m_Position.z);
-	}
 
 	//Wind force information
 	Vec3 windDir = Vec3(1.f, 0.f, 0.f);
@@ -261,7 +261,7 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 		p->m_ForceAccumulator + Vec3(gpuMag, gpuMag, gpuMag);
 
 
-	if (p->m_Position.y <= EPS) {
+	if (p->m_Position.y <= 2*EPS) {
 		//Apply friction force
 		Vec3 frictionVelVector =Vec3(-p->m_Velocity.x, 0.f, -p->m_Velocity.z);
 		Vec3 frictionVector = vecNormalize(frictionVelVector);
@@ -291,6 +291,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
+	static std::vector<float> fTypeVector,
 	bool** bVector, const int radius, const int diameter, float dt, bool start) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
@@ -304,7 +305,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	//Since data is retained on GPU, only need to load once
 	if (start) {
-		cudaLoad(*pVector, *fVector, *fOrderVector, sVector, *bVector);
+		cudaLoad(*pVector, *fVector, *fOrderVector, sVector, fTypeVector, *bVector);
 		start = false;
 	}
 
@@ -315,7 +316,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	auto f_start = std::chrono::high_resolution_clock::now();
 	//Apply spring forces and tearing if need be
-	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devFOrderVec, devFAccumalateVec, devBVec, 0,fVector->size(), tearing, devPVec, ks, kd, dist);
+	forceRoutine CUDA_KERNEL(numBlocksForces, blockSize1d) (devFVec, devFOrderVec, devFAccumalateVec, devBVec, 0,fVector->size(), tearing, devPVec, ks, kd, dist,devTypeVec);
 	sumForceRoutine CUDA_KERNEL(numBlocksParticles, blockSize1d) (devFAccumalateVec, devPVec, pVector->size());
 	auto f_end = std::chrono::high_resolution_clock::now();
 
@@ -330,6 +331,8 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
+
+
 
 	auto end_t = std::chrono::high_resolution_clock::now();
 #ifdef VERBOSE
