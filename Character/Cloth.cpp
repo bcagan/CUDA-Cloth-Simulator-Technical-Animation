@@ -11,7 +11,7 @@
 #define VERBOSE
 
 
-int sceneSetting = 1; //Faster way of choosing var. presets
+int sceneSetting = 0; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 int numFrames = 0;
@@ -46,7 +46,7 @@ static bool* bVector;
 #define FRICTION 0.5f
 
 //Cloth and spatial grid parameters
-const int radius = 30;
+const int radius = 99;
 const int diameter = 2 * radius + 1;
 const int gridDivisions = diameter / 6;
 
@@ -68,6 +68,7 @@ float sphereRadius = 4.f;
 bool randHeight = false;
 float normalDist = 7.5;
 double dist = 7.5/2.0;
+bool renderSave = false;
 
 
 
@@ -77,7 +78,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
 	static std::vector<float> fTypeVector,
-	bool** bVector, const int radius, const int diameter, float dt, bool start);
+	bool** bVector, const int radius, const int diameter, float dt, bool start, bool drawTriangles);
 void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize);
 void devFree();
 
@@ -121,6 +122,7 @@ Cloth::Cloth() {
 	randHeight = false;
 	windOn = false;
 	doDrawTriangle = true;
+	renderSave = true;
 	tearing = false; //Visaulizes better without triangles being drawn
 	integratorSet = SYMPLECTIC;
 	//Forward is the least stable, Symplectic has the best results, 
@@ -151,7 +153,7 @@ Cloth::Cloth() {
 		pin = true;
 		sidePin = false;
 		windOn = false;
-		tearing = false;
+		tearing = true;
 	}
 	else if (sceneSetting == 3) { //Unpinned folded
 		spheresOn = false;
@@ -339,31 +341,35 @@ void Cloth::reset(){
 }
 
 void Cloth::draw(){
+	int renderFactor = 1;
 	if (!doDrawTriangle) {
 		int size = pVector.size();
-		for (int ii = 0; ii < size; ii++) {
+		if(renderSave) renderFactor = (size + (124 * 124)) / (125 * 125);
+		for (int ii = 0; ii < size; ii = ii + renderFactor) {
 			cudaPVector[ii].draw();
 		}
 
 		size = fVector.size();
-		for (int ii = 0; ii < size; ii++) {
+		if (renderSave)renderFactor = (size + (124 * 124)) / (125 * 125);
+		for (int ii = 0; ii < size; ii = ii + renderFactor) {
 #ifdef CUDA
-			if(bVector[ii]) continue;
+			if(tearing && bVector[ii]) continue;
 #endif // CUDA
 
 			fVector[ii]->draw();
 		}
 	}
 	else {
-		for (int i = 0; i < diameter - 1; i++) {
-			for (int k = 0; k < diameter - 1; k++) {
+		if(renderSave) renderFactor = (diameter + 99) / 100;
+		for (int i = 0; i < diameter - 1; i = i + renderFactor) {
+			for (int k = 0; k < diameter - 1; k = k + renderFactor) {
 				Vector3f color = make_vector(1.f, 0.f, 0.f); //Ensure both have similar noemals by ordering as such
 				triangleDraw(Vec3ToVector3f(cudaPVector[i * diameter + k].m_Position), 
-							 Vec3ToVector3f(cudaPVector[(i + 1) * diameter + k].m_Position),
-							 Vec3ToVector3f(cudaPVector[i * diameter + k + 1].m_Position), color);
-				triangleDraw(Vec3ToVector3f(cudaPVector[(i + 1) * diameter + k].m_Position),
-					         Vec3ToVector3f(cudaPVector[(i + 1) * diameter + k + 1].m_Position),
-					         Vec3ToVector3f(cudaPVector[i * diameter + k + 1].m_Position), color);
+							 Vec3ToVector3f(cudaPVector[(i + renderFactor) * diameter + k].m_Position),
+							 Vec3ToVector3f(cudaPVector[i * diameter + k + renderFactor].m_Position), color);
+				triangleDraw(Vec3ToVector3f(cudaPVector[(i + renderFactor) * diameter + k].m_Position),
+					         Vec3ToVector3f(cudaPVector[(i + renderFactor) * diameter + k + renderFactor].m_Position),
+					         Vec3ToVector3f(cudaPVector[i * diameter + k + renderFactor].m_Position), color);
 			}
 		}
 	}
@@ -374,13 +380,8 @@ void Cloth::simulation_step(){
 
 
 #ifdef CUDA
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, fTypeVector,&bVector, radius, diameter, dt,true);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, fTypeVector,&bVector, radius, diameter, dt,true, doDrawTriangle);
 
-	for (auto& p : cudaPVector) {
-		if (p.m_Position.y < EPS) { //EPS used to avoid z-fighting
-			p.m_Position = Vec3(p.m_Position.x, EPS, p.m_Position.z);
-	}
-}
 #endif // CUDA
 
 #ifndef CUDA
@@ -389,11 +390,11 @@ void Cloth::simulation_step(){
 
 	tclock += dt;
 
-	/*for (auto& p : cudaPVector) {
-		std::cout << p.m_ForceAccumulator.x << " " << p.m_ForceAccumulator.y << " " << p.m_ForceAccumulator.z << std::endl;
-	}
-	std::cout << std::endl << std::endl << std::endl;
-	*/
+	//for (auto& p : cudaPVector) {
+	//	std::cout << p.m_ForceAccumulator.x << " " << p.m_ForceAccumulator.y << " " << p.m_ForceAccumulator.z << std::endl;
+	//}
+	//std::cout << std::endl << std::endl << std::endl;
+	
 
 }
 
@@ -445,7 +446,7 @@ void Cloth::cpu_simulate() {
 	auto start_t = std::chrono::high_resolution_clock::now();
 
 	//Wind force information
-	Vec3 windDir = Vec3(1.f, 0.f, 0.f);
+	Vec3 windDir = Vec3(1.3f, 0.f, 0.f);
 	auto windMagnitude = [this](Vec3 pos) {
 		float x = pos.x; float y = pos.y; float z = pos.z;
 		return 7.f * (cos(tclock * 10.f) + 1.f) * abs(sin(z + tclock * 5) + cos(y + tclock * 5) / 3.f);

@@ -154,7 +154,6 @@ __device__ void clearForce(SubParticle* p)
 }
 
 
-//this is wrong
 __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce1, Vec3* retForce2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear, bool copy)
 {
 	Vec3 p1 = m_p1->m_Position;
@@ -177,10 +176,6 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce
 	}
 }
 
-
-__device__ bool willTear(SpringForce* f) {
-	return f->teared;
-}
 
 
 __device__ SpringForce::SpringForce(SubParticle* p1, SubParticle* p2, float dist, float ks, float kd, int p_ind1, int p_ind2, float tf) :
@@ -226,16 +221,13 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 	SubParticle* pVector, float ks, float kd, double dist, float* typeVec) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= start + fLength || index < start) return;
-	if (bVector[index]) return;
+	if (bVector[index] && tearing) return;
 	std::pair<int, int> f = fVector[index];
-	float cudaTearFactor = 4.f;
+	float cudaTearFactor = 5.f;
 	int accInd1 = MAX_FORCE_PART * f.first + (fOrderVector[index]).first;
 	int accInd2 = MAX_FORCE_PART * f.second + (fOrderVector[index]).second;
 	float distFactored = typeVec[index] * dist;
-	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), true, false);
-	if (!tearing) {
-		bVector[index] = false;
-	}
+	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), tearing && true, false);
 }
 
 
@@ -249,12 +241,15 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 	SubParticle* p = &pVector[index];
 
 
+	if (p->m_Position.y < EPS + GRA * dt) { //EPS used to avoid z-fighting
+		p->m_Position = Vec3(p->m_Position.x, EPS + GRA * dt, p->m_Position.z);
+	}
+
 	//Wind force information
-	Vec3 windDir = Vec3(1.f, 0.f, 0.f);
+	Vec3 windDir = Vec3(1.3f, 0.f, 0.f);
 	clearForce(p);
 	float gOffset = -1.0 * GRA;
-	p->m_ForceAccumulator = 
-		p->m_ForceAccumulator + Vec3(0.f, gOffset, 0.f);
+	p->m_ForceAccumulator = Vec3(0.f, gOffset, 0.f);
 	float gpuMag = GPUWindMagnitude(p->m_Position, tclock);
 	if (windOn) p->m_ForceAccumulator = 
 		p->m_ForceAccumulator + windDir * gpuMag;
@@ -291,7 +286,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
 	static std::vector<float> fTypeVector,
-	bool** bVector, const int radius, const int diameter, float dt, bool start) {
+	bool** bVector, const int radius, const int diameter, float dt, bool start, bool drawTriangles) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
 
@@ -329,7 +324,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
-	cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
+	if (!drawTriangles && tearing) cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
 
 
 
