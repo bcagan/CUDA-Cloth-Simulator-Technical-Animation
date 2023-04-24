@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-//#define VERBOSE
+#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -73,6 +73,8 @@ extern bool randHeight;
 extern double dist;
 extern double ks;
 extern double kd;
+extern bool start;
+extern bool benchmark;
 
 extern float totalTime;
 extern float totalIntegration;
@@ -90,6 +92,7 @@ static Vec3* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
 void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
+	start = true;
 	cudaMalloc(&devPVec, pVecSize * sizeof(SubParticle));
 	cudaMemset(&devPVec, 0, pVecSize * sizeof(SubParticle));
 
@@ -300,7 +303,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
 	static std::vector<signed char> fTypeVector,
-	bool** bVector, const int radius, const int diameter, float dt, bool start, bool drawTriangles) {
+	bool** bVector, const int radius, const int diameter, float dt, bool drawTriangles) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
 
@@ -350,7 +353,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	std::chrono::duration<double>  particle_dif = particle_end - particle_start;
 	std::chrono::duration<double>  f_dif = f_end - f_start;
 	std::chrono::duration<double>  inter_dif = inter_end - inter_start;
-	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
+	if(!benchmark) std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
 		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\n Integration: " << inter_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
 	totalTime += dif_t.count();
 	totalParticles += particle_dif.count();

@@ -8,7 +8,7 @@
 
 #define CUDA
 
-//#define VERBOSE
+#define VERBOSE
 
 
 int sceneSetting = 1; //Faster way of choosing var. presets
@@ -51,7 +51,7 @@ static bool* bVector;
 #define SMOOTH_RENDER_FACTOR 149
 
 //Cloth and spatial grid parameters
-int radius = 225;
+int radius = 32;
 int diameter = 2 * radius + 1;
 
 //Global parameters
@@ -73,7 +73,11 @@ bool randHeight = false;
 float normalDist = 7.5;
 double dist = 7.5/2.0;
 bool renderSave = false;
+bool start = true;
 
+//Special variable for setting benchmarking
+int benchCount = 450;
+bool benchmark = true;
 
 
 
@@ -82,7 +86,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
 	static std::vector<signed char> fTypeVector,
-	bool** bVector, const int radius, const int diameter, float dt, bool start, bool drawTriangles);
+	bool** bVector, const int radius, const int diameter, float dt, bool drawTriangles);
 void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize);
 void devFree();
 
@@ -382,11 +386,12 @@ void Cloth::draw(){
 
 }
 
-void Cloth::simulation_step(){
+
+void Cloth::simulation_step() {
 
 
 #ifdef CUDA
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, fTypeVector,&bVector, radius, diameter, dt,true, doDrawTriangle);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, fTypeVector, &bVector, radius, diameter, dt, doDrawTriangle);
 
 #endif // CUDA
 
@@ -402,11 +407,12 @@ void Cloth::simulation_step(){
 	//std::cout << std::endl << std::endl << std::endl;
 
 #ifdef VERBOSE
-
-	std::cout << "Average total: " << totalTime / (float)numFrames << std::endl;
-	std::cout << "Average particles: " << totalParticles / (float)numFrames << std::endl;
-	std::cout << "Average forces: " << totalForces / (float)numFrames << std::endl;
-	std::cout << "Average integration: " << totalIntegration / (float)numFrames << std::endl;
+	if (!benchmark || benchCount == numFrames){
+		std::cout << "Average total: " << totalTime / (float)numFrames << std::endl;
+		std::cout << "Average particles: " << totalParticles / (float)numFrames << std::endl;
+		std::cout << "Average forces: " << totalForces / (float)numFrames << std::endl;
+		std::cout << "Average integration: " << totalIntegration / (float)numFrames << std::endl;
+	}
 
 #endif // VERBOSE
 
@@ -556,8 +562,10 @@ void Cloth::cpu_simulate() {
 	std::chrono::duration<double>  particle_dif = particle_end - particle_start;
 	std::chrono::duration<double>  f_dif = f_end - f_start;
 	std::chrono::duration<double> i_dif = end_t - start_integration;
-	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() << 
-		"\n" << "Forces and Tearing: " << f_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
+	if (!benchmark) {
+		std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
+			"\n" << "Forces and Tearing: " << f_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
+	}
 	totalTime += dif_t.count();
 	totalParticles += particle_dif.count();
 	totalForces += f_dif.count();
