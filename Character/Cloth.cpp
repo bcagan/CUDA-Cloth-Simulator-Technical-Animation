@@ -11,7 +11,11 @@
 #define VERBOSE
 
 
-int sceneSetting = 1; //Faster way of choosing var. presets
+//Cloth and spatial grid parameters
+int radius = 512;
+int diameter = 2 * radius + 1;
+
+int sceneSetting = 3; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 float totalIntegration = 0.f;
@@ -50,9 +54,6 @@ static bool* bVector;
 #define MAX_SMOOTH_RENDER 124
 #define SMOOTH_RENDER_FACTOR 149
 
-//Cloth and spatial grid parameters
-int radius = 32;
-int diameter = 2 * radius + 1;
 
 //Global parameters
 float tclock = 0.f;
@@ -161,7 +162,7 @@ Cloth::Cloth() {
 		pin = true;
 		sidePin = false;
 		windOn = false;
-		tearing = true;
+		tearing = false;
 	}
 	else if (sceneSetting == 3) { //Unpinned folded
 		spheresOn = false;
