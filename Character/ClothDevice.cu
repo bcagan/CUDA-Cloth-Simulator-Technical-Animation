@@ -258,9 +258,6 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 	SubParticle* p = &pVector[index];
 
 
-	if (p->m_Position.y < EPS + GRA * dt) { //EPS used to avoid z-fighting
-		p->m_Position = Vec3(p->m_Position.x, EPS + GRA * dt, p->m_Position.z);
-	}
 
 	//Wind force information
 	Vec3 windDir = Vec3(1.3f, 0.f, 0.f);
@@ -291,6 +288,9 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 				10.f, (2.f + radius / 40.f) * s.radius, INFINITY,nullptr,false, true); //Distance const scaled by radii to avoid clipping
 
 		}
+	}
+	if (p->m_Position.y < EPS + GRA * dt) { //EPS used to avoid z-fighting
+		p->m_Position = Vec3(p->m_Position.x, EPS + GRA * dt, p->m_Position.z);
 	}
 }
 

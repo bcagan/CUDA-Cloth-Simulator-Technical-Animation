@@ -127,3 +127,128 @@ Average total: 0.00999761
 Average particles: 3.35316e-05
 Average forces: 1.20011e-05
 Average integration: 4.93712e-06
+CPU
+Scene = 0
+	radius = 32
+Average total: 0.000880594
+Average particles: 0.000102722
+Average forces: 0.000759714
+Average integration: 1.79822e-05
+	radius = 64
+Average total: 0.00361772
+Average particles: 0.000300078
+Average forces: 0.00321019
+Average integration: 0.000107269
+	radius = 128
+Average total: 0.01419
+Average particles: 0.00118308
+Average forces: 0.0126172
+Average integration: 0.000389368
+	radius = 256
+Average total: 0.0617281
+Average particles: 0.00465572
+Average forces: 0.0551931
+Average integration: 0.00187893
+	radius = 384
+Average total: 0.149123
+Average particles: 0.0102732
+Average forces: 0.134524
+Average integration: 0.00432625
+	radius = 512
+Average total: 0.279475
+Average particles: 0.0180243
+Average forces: 0.253538
+Average integration: 0.00791279
+Scene = 1
+	radius = 32
+Average total: 0.000960009
+Average particles: 0.000190291
+Average forces: 0.000752321
+Average integration: 1.71917e-05
+	radius = 64
+Average total: 0.00375218
+Average particles: 0.000762266
+Average forces: 0.00292211
+Average integration: 6.75391e-05
+	radius = 128
+Average total: 0.0156616
+Average particles: 0.00298788
+Average forces: 0.012346
+Average integration: 0.000327282
+	radius = 256
+Average total: 0.0689962
+Average particles: 0.0117548
+Average forces: 0.0554263
+Average integration: 0.0018146
+	radius = 384
+Average total: 0.185924
+Average particles: 0.0273343
+Average forces: 0.153123
+Average integration: 0.00546652
+	radius = 512
+Average total: 0.31703
+Average particles: 0.0477559
+Average forces: 0.260964
+Average integration: 0.008309
+Scene = 2
+	radius = 32
+Average total: 0.000761747
+Average particles: 2.77613e-05
+Average forces: 0.000715412
+Average integration: 1.83824e-05
+	radius = 64
+Average total: 0.00313624
+Average particles: 8.41691e-05
+Average forces: 0.00297959
+Average integration: 7.22857e-05
+	radius = 128
+Average total: 0.0144876
+Average particles: 0.000302577
+Average forces: 0.0136452
+Average integration: 0.000539588
+	radius = 256
+Average total: 0.0711522
+Average particles: 0.00168694
+Average forces: 0.0656632
+Average integration: 0.00380171
+	radius = 384
+Average total: 0.165649
+Average particles: 0.00387008
+Average forces: 0.153396
+Average integration: 0.00838193
+	radius = 512
+Average total: 0.308928
+Average particles: 0.00664485
+Average forces: 0.288598
+Average integration: 0.0136848
+Scene = 3
+	radius = 32
+Average total: 0.000844576
+Average particles: 2.45709e-05
+Average forces: 0.000802104
+Average integration: 1.77829e-05
+	radius = 64
+Average total: 0.003489
+Average particles: 8.12051e-05
+Average forces: 0.00333006
+Average integration: 7.76042e-05
+	radius = 128
+Average total: 0.0153267
+Average particles: 0.00032162
+Average forces: 0.0143626
+Average integration: 0.000642276
+	radius = 256
+Average total: 0.0741588
+Average particles: 0.00184652
+Average forces: 0.068245
+Average integration: 0.00406705
+	radius = 384
+Average total: 0.163704
+Average particles: 0.0036785
+Average forces: 0.152566
+Average integration: 0.00745912
+	radius = 512
+Average total: 0.286343
+Average particles: 0.00610807
+Average forces: 0.268522
+Average integration: 0.0117126

@@ -15,7 +15,7 @@
 int radius = 512;
 int diameter = 2 * radius + 1;
 
-int sceneSetting = 3; //Faster way of choosing var. presets
+int sceneSetting = 0; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 float totalIntegration = 0.f;
