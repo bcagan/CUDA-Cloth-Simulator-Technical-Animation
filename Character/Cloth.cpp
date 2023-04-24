@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-#define CUDA
+//#define CUDA
 
 #define VERBOSE
 
@@ -78,7 +78,7 @@ bool start = true;
 
 //Special variable for setting benchmarking
 int benchCount = 450;
-bool benchmark = true;
+bool benchmark = false;
 
 
 
