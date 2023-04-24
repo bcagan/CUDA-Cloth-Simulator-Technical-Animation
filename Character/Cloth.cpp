@@ -21,6 +21,7 @@ float totalTime = 0.f;
 float totalIntegration = 0.f;
 float totalParticles = 0.f;
 float totalForces = 0.f;
+float totalFrameTime = 0.f;
 int numFrames = 0;
 struct Sphere
 {
@@ -78,8 +79,8 @@ bool start = true;
 
 //Special variable for setting benchmarking
 int benchCount = 450;
-bool benchmark = false;
-
+bool benchmark = true;
+std::chrono::steady_clock::time_point lastFramePoint;
 
 
 void GPU_simulate(static std::vector<Sphere> sVector,
@@ -110,6 +111,7 @@ void triangleDraw(Vector3f a, Vector3f b, Vector3f c, Vector3f color) {
 }
 
 Cloth::Cloth() {
+	lastFramePoint = std::chrono::high_resolution_clock::now();
 	//All that follows are variables used through out the program that can be set along with the cloth
 	dt = 1.f/60.f;
 	float height = 10.f;
@@ -402,10 +404,15 @@ void Cloth::simulation_step() {
 
 	tclock += dt;
 
-	//for (auto& p : cudaPVector) {
-	//	std::cout << p.m_ForceAccumulator.x << " " << p.m_ForceAccumulator.y << " " << p.m_ForceAccumulator.z << std::endl;
-	//}
-	//std::cout << std::endl << std::endl << std::endl;
+	if (start) {
+		start = false;
+		lastFramePoint = std::chrono::high_resolution_clock::now();
+	}
+
+	auto nextFramePoint = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> tempFrameDelta = nextFramePoint - lastFramePoint;
+	totalFrameTime += tempFrameDelta.count();
+	lastFramePoint = nextFramePoint;
 
 #ifdef VERBOSE
 	if (!benchmark || benchCount == numFrames){
@@ -413,6 +420,7 @@ void Cloth::simulation_step() {
 		std::cout << "Average particles: " << totalParticles / (float)numFrames << std::endl;
 		std::cout << "Average forces: " << totalForces / (float)numFrames << std::endl;
 		std::cout << "Average integration: " << totalIntegration / (float)numFrames << std::endl;
+		std::cout << "Average frametime: " << totalFrameTime / (float) numFrames << std::endl;
 	}
 
 #endif // VERBOSE
