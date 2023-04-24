@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-#define VERBOSE
+//#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -74,15 +74,18 @@ extern double dist;
 extern double ks;
 extern double kd;
 
-float cudaTotalTime = 0.f;
-int cudaNumFrames = 0;
+extern float totalTime;
+extern float totalIntegration;
+extern float totalParticles;
+extern float totalForces ;
+extern int numFrames;
 
 //CUDA Data and related helper functions
 static SubParticle* devPVec = NULL;
 static Sphere* devSVec = NULL;
 static std::pair<int, int>* devFVec = NULL;
 static std::pair<int, int>* devFOrderVec = NULL;
-static float* devTypeVec = NULL;
+static signed char* devTypeVec = NULL;
 static Vec3* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
@@ -105,19 +108,19 @@ void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
 	cudaMalloc(&devFAccumalateVec, pVecSize * MAX_FORCE_PART * sizeof(Vec3));
 	cudaMemset(&devFAccumalateVec, 0, pVecSize * MAX_FORCE_PART * sizeof(Vec3));
 
-	cudaMalloc(&devTypeVec, fVecSize * sizeof(float));
-	cudaMemset(&devTypeVec, 0, fVecSize * sizeof(float));
+	cudaMalloc(&devTypeVec, fVecSize * sizeof(signed char));
+	cudaMemset(&devTypeVec, 0, fVecSize * sizeof(signed char));
 }
 
 void cudaLoad(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, 
-	std::vector<float> typeVec, bool* bVec) {
+	std::vector<signed char> typeVec, bool* bVec) {
 
 	cudaMemcpy(devPVec, pVec.data(), pVec.size() * sizeof(SubParticle), cudaMemcpyHostToDevice);
 	cudaMemcpy(devFOrderVec, fOrderVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
 	cudaMemcpy(devFVec, fVec.data(), fVec.size() * sizeof(std::pair<int, int>), cudaMemcpyHostToDevice);
 	cudaMemcpy(devSVec, sVec.data(), sVec.size() * sizeof(Sphere), cudaMemcpyHostToDevice);
 	cudaMemcpy(devBVec, bVec, fVec.size() * sizeof(bool), cudaMemcpyHostToDevice);
-	cudaMemcpy(devTypeVec, typeVec.data(), fVec.size() * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(devTypeVec, typeVec.data(), fVec.size() * sizeof(signed char), cudaMemcpyHostToDevice);
 }
 
 
@@ -218,7 +221,7 @@ __global__ void sumForceRoutine(Vec3* accVector, SubParticle* pVector, size_t pL
 }
 
 __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* fOrderVector, Vec3* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, 
-	SubParticle* pVector, float ks, float kd, double dist, float* typeVec) {
+	SubParticle* pVector, float ks, float kd, double dist, signed char* typeVec) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= start + fLength || index < start) return;
 	if (bVector[index] && tearing) return;
@@ -226,7 +229,18 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 	float cudaTearFactor = 5.f;
 	int accInd1 = MAX_FORCE_PART * f.first + (fOrderVector[index]).first;
 	int accInd2 = MAX_FORCE_PART * f.second + (fOrderVector[index]).second;
-	float distFactored = typeVec[index] * dist;
+	float distFactored = dist;
+	switch (typeVec[index])
+	{
+	case 0:
+		distFactored *= sqrt(2.0);
+		break;
+	case 1:
+		break;
+	default:
+		distFactored *= 2;
+		break;
+	}
 	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), tearing && true, false);
 }
 
@@ -285,7 +299,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
-	static std::vector<float> fTypeVector,
+	static std::vector<signed char> fTypeVector,
 	bool** bVector, const int radius, const int diameter, float dt, bool start, bool drawTriangles) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
@@ -338,9 +352,11 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	std::chrono::duration<double>  inter_dif = inter_end - inter_start;
 	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
 		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\n Integration: " << inter_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
-	cudaTotalTime += dif_t.count();
-	cudaNumFrames++;
-	std::cout << "Average total: " << cudaTotalTime / (float)cudaNumFrames << std::endl;
+	totalTime += dif_t.count();
+	totalParticles += particle_dif.count();
+	totalForces += f_dif.count();
+	totalIntegration += inter_dif.count();
+	numFrames++;
 #endif //  VERBOSE
 
 

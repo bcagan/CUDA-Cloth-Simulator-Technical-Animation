@@ -8,12 +8,15 @@
 
 #define CUDA
 
-#define VERBOSE
+//#define VERBOSE
 
 
-int sceneSetting = 0; //Faster way of choosing var. presets
+int sceneSetting = 1; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
+float totalIntegration = 0.f;
+float totalParticles = 0.f;
+float totalForces = 0.f;
 int numFrames = 0;
 struct Sphere
 {
@@ -35,7 +38,7 @@ static std::vector<SubParticle> cudaPVector;
 static std::vector<Force*> fVector;
 static std::vector<std::pair<int, int>> cudaFVector;
 static std::vector<std::pair<int, int>> cudaFOrderVector;
-static std::vector<float> fTypeVector;
+static std::vector<signed char> fTypeVector;
 static bool* bVector;
 
 //Consts
@@ -44,11 +47,12 @@ static bool* bVector;
 #define EPS 0.001f
 #define GRA 9.8f
 #define FRICTION 0.5f
+#define MAX_SMOOTH_RENDER 124
+#define SMOOTH_RENDER_FACTOR 149
 
 //Cloth and spatial grid parameters
-const int radius = 99;
-const int diameter = 2 * radius + 1;
-const int gridDivisions = diameter / 6;
+int radius = 225;
+int diameter = 2 * radius + 1;
 
 //Global parameters
 float tclock = 0.f;
@@ -77,7 +81,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
-	static std::vector<float> fTypeVector,
+	static std::vector<signed char> fTypeVector,
 	bool** bVector, const int radius, const int diameter, float dt, bool start, bool drawTriangles);
 void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize);
 void devFree();
@@ -256,7 +260,7 @@ Cloth::Cloth() {
 			cudaFVector.push_back(std::make_pair(diameter * (i + offset) + offset, diameter * (i + offset + 1) + offset + 1));
 			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (i + offset) + offset], curForce[diameter * (i + offset + 1) + offset + 1]));
 			curForce[diameter * (i + offset) + offset]++; curForce[diameter * (i + offset + 1) + offset + 1]++;
-			fTypeVector.push_back(sqrt(2));
+			fTypeVector.push_back(0);
 		}
 	}
 	//TL->BR from k
@@ -267,7 +271,7 @@ Cloth::Cloth() {
 			cudaFVector.push_back(std::make_pair(diameter* (offset)+k + offset, diameter* (offset + 1) + k + offset + 1));
 			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (offset)+k + offset], curForce[diameter * (offset + 1) + k + offset + 1]));
 			curForce[diameter * (offset)+k + offset]++; curForce[diameter * (offset + 1) + k + offset + 1]++;
-			fTypeVector.push_back(sqrt(2));
+			fTypeVector.push_back(0);
 		}
 	}
 	//TR->BL from i
@@ -279,7 +283,7 @@ Cloth::Cloth() {
 			cudaFVector.push_back(std::make_pair(diameter* (offset)+koffset, diameter* (offset + 1) + koffset - 1));
 			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (offset)+koffset], curForce[diameter * (offset + 1) + koffset - 1]));
 			curForce[diameter * (offset)+koffset]++; curForce[diameter * (offset + 1) + koffset - 1]++;
-			fTypeVector.push_back(sqrt(2));
+			fTypeVector.push_back(0);
 		}
 	}
 	//TR->BL from k
@@ -292,7 +296,7 @@ Cloth::Cloth() {
 			cudaFVector.push_back(std::make_pair(diameter* (ioffset)+koffset, diameter* (ioffset - 1) + koffset + 1));
 			cudaFOrderVector.push_back(std::make_pair(curForce[diameter * (ioffset)+koffset], curForce[diameter * (ioffset - 1) + koffset + 1]));
 			curForce[diameter * (ioffset)+koffset]++; curForce[diameter * (ioffset - 1) + koffset + 1]++;
-			fTypeVector.push_back(sqrt(2));
+			fTypeVector.push_back(0);
 		}
 	}
 	
@@ -344,13 +348,15 @@ void Cloth::draw(){
 	int renderFactor = 1;
 	if (!doDrawTriangle) {
 		int size = pVector.size();
-		if(renderSave) renderFactor = (size + (124 * 124)) / (125 * 125);
+		if(renderSave && radius > MAX_SMOOTH_RENDER) renderFactor = (size + (SMOOTH_RENDER_FACTOR * SMOOTH_RENDER_FACTOR))
+			/ ((1 + SMOOTH_RENDER_FACTOR) * (1 + SMOOTH_RENDER_FACTOR));
 		for (int ii = 0; ii < size; ii = ii + renderFactor) {
 			cudaPVector[ii].draw();
 		}
 
 		size = fVector.size();
-		if (renderSave)renderFactor = (size + (124 * 124)) / (125 * 125);
+		if (renderSave && radius > MAX_SMOOTH_RENDER)renderFactor = (size + (SMOOTH_RENDER_FACTOR * SMOOTH_RENDER_FACTOR)) 
+			/ ((1 + SMOOTH_RENDER_FACTOR) * (1 + SMOOTH_RENDER_FACTOR));
 		for (int ii = 0; ii < size; ii = ii + renderFactor) {
 #ifdef CUDA
 			if(tearing && bVector[ii]) continue;
@@ -360,7 +366,7 @@ void Cloth::draw(){
 		}
 	}
 	else {
-		if(renderSave) renderFactor = (diameter + 99) / 100;
+		if (renderSave && radius > MAX_SMOOTH_RENDER) renderFactor = (diameter + SMOOTH_RENDER_FACTOR) / (1 + SMOOTH_RENDER_FACTOR);
 		for (int i = 0; i < diameter - 1; i = i + renderFactor) {
 			for (int k = 0; k < diameter - 1; k = k + renderFactor) {
 				Vector3f color = make_vector(1.f, 0.f, 0.f); //Ensure both have similar noemals by ordering as such
@@ -394,6 +400,16 @@ void Cloth::simulation_step(){
 	//	std::cout << p.m_ForceAccumulator.x << " " << p.m_ForceAccumulator.y << " " << p.m_ForceAccumulator.z << std::endl;
 	//}
 	//std::cout << std::endl << std::endl << std::endl;
+
+#ifdef VERBOSE
+
+	std::cout << "Average total: " << totalTime / (float)numFrames << std::endl;
+	std::cout << "Average particles: " << totalParticles / (float)numFrames << std::endl;
+	std::cout << "Average forces: " << totalForces / (float)numFrames << std::endl;
+	std::cout << "Average integration: " << totalIntegration / (float)numFrames << std::endl;
+
+#endif // VERBOSE
+
 	
 
 }
@@ -520,7 +536,7 @@ void Cloth::cpu_simulate() {
 		}
 	}
 
-
+	auto start_integration = std::chrono::high_resolution_clock::now();
 	if (!stepAhead) {
 		//Then, we can move forward
 		euler_step(integratorSet);
@@ -539,11 +555,14 @@ void Cloth::cpu_simulate() {
 	std::chrono::duration<double>  dif_t = end_t - start_t;
 	std::chrono::duration<double>  particle_dif = particle_end - particle_start;
 	std::chrono::duration<double>  f_dif = f_end - f_start;
+	std::chrono::duration<double> i_dif = end_t - start_integration;
 	std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() << 
 		"\n" << "Forces and Tearing: " << f_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
 	totalTime += dif_t.count();
+	totalParticles += particle_dif.count();
+	totalForces += f_dif.count();
+	totalIntegration += i_dif.count();
 	numFrames++;
-	std::cout << "Average total: " << totalTime / (float)numFrames << std::endl;
 
 #endif //  VERBOSE
 }
