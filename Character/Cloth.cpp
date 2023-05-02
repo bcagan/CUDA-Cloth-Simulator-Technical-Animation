@@ -6,16 +6,16 @@
 
 #include <chrono>
 
-//#define CUDA
+#define CUDA
 
-#define VERBOSE
+//#define VERBOSE
 
 
 //Cloth and spatial grid parameters
-int radius = 512;
+int radius = 50;
 int diameter = 2 * radius + 1;
 
-int sceneSetting = 0; //Faster way of choosing var. presets
+int sceneSetting = 2; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 float totalIntegration = 0.f;
@@ -79,7 +79,7 @@ bool start = true;
 
 //Special variable for setting benchmarking
 int benchCount = 450;
-bool benchmark = true;
+bool benchmark = false;
 std::chrono::steady_clock::time_point lastFramePoint;
 
 
@@ -114,7 +114,7 @@ Cloth::Cloth() {
 	lastFramePoint = std::chrono::high_resolution_clock::now();
 	//All that follows are variables used through out the program that can be set along with the cloth
 	dt = 1.f/60.f;
-	float height = 10.f;
+	float height = 5.f;//10.f;
 	normalDist = 7.5;
 	dist = normalDist / radius;
 	Vec3 center = Vec3(0.0f, height, 0.0f);
@@ -132,7 +132,7 @@ Cloth::Cloth() {
 	collisionDist = 15/radius;
 	randHeight = false;
 	windOn = false;
-	doDrawTriangle = true;
+	doDrawTriangle = false;
 	renderSave = true;
 	tearing = false; //Visaulizes better without triangles being drawn
 	integratorSet = SYMPLECTIC;
@@ -164,7 +164,7 @@ Cloth::Cloth() {
 		pin = true;
 		sidePin = false;
 		windOn = false;
-		tearing = false;
+		tearing = true;
 	}
 	else if (sceneSetting == 3) { //Unpinned folded
 		spheresOn = false;

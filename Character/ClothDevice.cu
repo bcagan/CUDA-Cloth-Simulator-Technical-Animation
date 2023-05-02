@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-#define VERBOSE
+//#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -162,6 +162,7 @@ __device__ void clearForce(SubParticle* p)
 
 __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce1, Vec3* retForce2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear, bool copy)
 {
+	if (*teared) return;
 	Vec3 p1 = m_p1->m_Position;
 	Vec3 p2 = m_p2->m_Position;
 	Vec3 p1mp2 = p1 - p2; 
@@ -170,7 +171,10 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce
 	float firstFactorF = m_ks * (pdist - m_dist); 
 	Vec3 f1 =  (p1mp2 / pdist) * -1.f* (firstFactorF + m_kd * (dot(v1mv2, p1mp2)) / pdist);
 	Vec3 f2 = f1 * -1.f;
-	if (testTear && abs(vecNorm(f1)) > m_ks * tearFactor) *teared = true;
+	if (testTear && abs(vecNorm(f1)) > m_ks * tearFactor) {
+		*teared = true;
+		return;
+	}
 	if (copy) {
 		*retForce1 += f1;
 		*retForce2 += f2;
@@ -227,7 +231,7 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 	SubParticle* pVector, float ks, float kd, double dist, signed char* typeVec) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= start + fLength || index < start) return;
-	if (bVector[index] && tearing) return;
+	if (bVector[index] == true) return;
 	std::pair<int, int> f = fVector[index];
 	float cudaTearFactor = 5.f;
 	int accInd1 = MAX_FORCE_PART * f.first + (fOrderVector[index]).first;
@@ -244,7 +248,7 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 		distFactored *= 2;
 		break;
 	}
-	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), tearing && true, false);
+	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), tearing, false);
 }
 
 
@@ -335,13 +339,19 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	auto inter_start = std::chrono::high_resolution_clock::now();
 	//To minimize memory usage, only symplectic is supported on CUDA
 	symplecticRoutine CUDA_KERNEL(numBlocksParticles, blockSize1d) (devPVec, pVector->size(), dt, sidePin, pin, diameter);
-	//Copy integrated data back to CPU from device
 	auto inter_end = std::chrono::high_resolution_clock::now();
 
-
+	auto copy_start = std::chrono::high_resolution_clock::now();
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	if (!drawTriangles && tearing) cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
+	//std::cout << "Printing teared vector\n";
+	//for (int i = 0; i < fVector->size(); i++) {
+	//	if ((*bVector)[i]) {
+	//		std::cout << "True at " << i << std::endl;
+	//		std::cout << "Forces are " << (*pVector)[i].m_ForceAccumulator.x <<  " " << (*pVector)[i].m_ForceAccumulator.y << " " << (*pVector)[i].m_ForceAccumulator.z << std::endl;
+	//	}
+	//}
 
 
 
@@ -353,8 +363,10 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	std::chrono::duration<double>  particle_dif = particle_end - particle_start;
 	std::chrono::duration<double>  f_dif = f_end - f_start;
 	std::chrono::duration<double>  inter_dif = inter_end - inter_start;
+	std::chrono::duration<double>  copy_dif = end_t - copy_start;
 	if(!benchmark) std::cout << "Time deltas: \n" << "Particles: " << particle_dif.count() <<
-		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\n Integration: " << inter_dif.count() << "\nTotal: " << dif_t.count() << std::endl;
+		"\n" << "Forces and Tearing: " << f_dif.count() <<  "\n Integration: " << inter_dif.count() << "\nCopy: " << copy_dif.count()
+		<< "\nTotal: " << dif_t.count() << std::endl;
 	totalTime += dif_t.count();
 	totalParticles += particle_dif.count();
 	totalForces += f_dif.count();
