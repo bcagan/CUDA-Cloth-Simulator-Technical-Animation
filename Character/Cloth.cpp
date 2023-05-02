@@ -88,7 +88,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
 	static std::vector<signed char> fTypeVector,
-	bool** bVector, const int radius, const int diameter, float dt, bool drawTriangles);
+	bool** bVector, const int radius, const int diameter, float dt, bool drawTriangles, bool tearing);
 void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize);
 void devFree();
 
@@ -114,7 +114,7 @@ Cloth::Cloth() {
 	lastFramePoint = std::chrono::high_resolution_clock::now();
 	//All that follows are variables used through out the program that can be set along with the cloth
 	dt = 1.f/60.f;
-	float height = 5.f;//10.f;
+	float height = 10.f;
 	normalDist = 7.5;
 	dist = normalDist / radius;
 	Vec3 center = Vec3(0.0f, height, 0.0f);
@@ -394,7 +394,7 @@ void Cloth::simulation_step() {
 
 
 #ifdef CUDA
-	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, fTypeVector, &bVector, radius, diameter, dt, doDrawTriangle);
+	GPU_simulate(sVector, &cudaPVector, &cudaFVector, &cudaFOrderVector, fTypeVector, &bVector, radius, diameter, dt, doDrawTriangle, tearing);
 
 #endif // CUDA
 

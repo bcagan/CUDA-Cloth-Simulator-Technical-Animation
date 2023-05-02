@@ -65,7 +65,6 @@ extern float springConstSphere;
 extern float collisionDist;
 extern bool windOn;
 extern bool doDrawTriangle;
-extern bool tearing;
 extern bool stepAhead;
 extern bool spheresOn;
 extern float sphereRadius;
@@ -248,7 +247,7 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 		distFactored *= 2;
 		break;
 	}
-	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, &(bVector[index]), tearing, false);
+	apply_force(&(pVector[f.first]), &(pVector[f.second]), &(accVector[accInd1]), &(accVector[accInd2]),ks, kd, distFactored, cudaTearFactor, bVector + index, tearing, false);
 }
 
 
@@ -307,7 +306,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<std::pair<int, int>>* fVector,
 	static std::vector<std::pair<int, int>>* fOrderVector,
 	static std::vector<signed char> fTypeVector,
-	bool** bVector, const int radius, const int diameter, float dt, bool drawTriangles) {
+	bool** bVector, const int radius, const int diameter, float dt, bool drawTriangles, bool tearing) {
 
 	auto start_t = std::chrono::high_resolution_clock::now();
 
@@ -345,13 +344,6 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	if (!drawTriangles && tearing) cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);
-	//std::cout << "Printing teared vector\n";
-	//for (int i = 0; i < fVector->size(); i++) {
-	//	if ((*bVector)[i]) {
-	//		std::cout << "True at " << i << std::endl;
-	//		std::cout << "Forces are " << (*pVector)[i].m_ForceAccumulator.x <<  " " << (*pVector)[i].m_ForceAccumulator.y << " " << (*pVector)[i].m_ForceAccumulator.z << std::endl;
-	//	}
-	//}
 
 
 
