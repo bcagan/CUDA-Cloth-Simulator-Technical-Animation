@@ -8,11 +8,11 @@
 
 #define CUDA
 
-//#define VERBOSE
+#define VERBOSE
 
 
 //Cloth and spatial grid parameters
-int radius = 50;
+int radius = 600;
 int diameter = 2 * radius + 1;
 
 int sceneSetting = 2; //Faster way of choosing var. presets
@@ -132,7 +132,7 @@ Cloth::Cloth() {
 	collisionDist = 15/radius;
 	randHeight = false;
 	windOn = false;
-	doDrawTriangle = false;
+	doDrawTriangle = true;
 	renderSave = true;
 	tearing = false; //Visaulizes better without triangles being drawn
 	integratorSet = SYMPLECTIC;

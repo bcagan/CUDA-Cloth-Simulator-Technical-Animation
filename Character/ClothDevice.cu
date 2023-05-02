@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-//#define VERBOSE
+#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -321,6 +321,9 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	if (start) {
 		cudaLoad(*pVector, *fVector, *fOrderVector, sVector, fTypeVector, *bVector);
 		start = false;
+	}
+	else if (tearing) {
+		cudaMemset(&devBVec, 0, fVector->size() * sizeof(bool));
 	}
 
 	auto particle_start = std::chrono::high_resolution_clock::now();

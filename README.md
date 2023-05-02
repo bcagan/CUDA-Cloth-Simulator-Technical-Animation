@@ -1,12 +1,9 @@
 ## Overview
 
-This source code provides a template to implement cloth simulation. Please refer to the [course website](http://graphics.cs.cmu.edu/nsp/course/15464-s20/www/assts.html) for project instructions.
+CUDA accelerate cloth simulator built upon my own implementation of cloth simulator from base code provided for 15-464 mini-project 2 http://graphics.cs.cmu.edu/nsp/course/15464-s23/www/assignments/miniProject2.pdf
 
 ## Controls
 
-The application reads data from a directory tree, expecting one asf file and
-possibly several amc files per directory. Once the motion has been loaded,
-a
 
 * ESC to quit
 
@@ -50,6 +47,12 @@ cd Dist
 ```
 
 ## Copyright
+
+Below is the copyright for the original base code built upon AMCViewer.
+The cloth simulator itself was of course fully implemented by me (Ben Cagan)
+
+------
+
 All source is copyright Jim McCann unless otherwise noted. Feel free to use
 in your own projects (please retain some pointer or reference to the original
 source in a readme or credits section, however).
