@@ -8,14 +8,14 @@
 
 #define CUDA
 
-#define VERBOSE
+//#define VERBOSE
 
 
 //Cloth and spatial grid parameters
-int radius = 600;
+int radius = 500;
 int diameter = 2 * radius + 1;
 
-int sceneSetting = 2; //Faster way of choosing var. presets
+int sceneSetting = 1; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 float totalIntegration = 0.f;
@@ -164,7 +164,7 @@ Cloth::Cloth() {
 		pin = true;
 		sidePin = false;
 		windOn = false;
-		tearing = true;
+		tearing = false;
 	}
 	else if (sceneSetting == 3) { //Unpinned folded
 		spheresOn = false;

@@ -14,7 +14,7 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-#define VERBOSE
+//#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -161,7 +161,7 @@ __device__ void clearForce(SubParticle* p)
 
 __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce1, Vec3* retForce2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear, bool copy)
 {
-	if (*teared) return;
+	if (testTear && *teared) return;
 	Vec3 p1 = m_p1->m_Position;
 	Vec3 p2 = m_p2->m_Position;
 	Vec3 p1mp2 = p1 - p2; 
@@ -232,7 +232,7 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 	if (index >= start + fLength || index < start) return;
 	if (bVector[index] == true) return;
 	std::pair<int, int> f = fVector[index];
-	float cudaTearFactor = 5.f;
+	float cudaTearFactor = 4.f;
 	int accInd1 = MAX_FORCE_PART * f.first + (fOrderVector[index]).first;
 	int accInd2 = MAX_FORCE_PART * f.second + (fOrderVector[index]).second;
 	float distFactored = dist;

@@ -1,6 +1,6 @@
 ## Overview
 
-CUDA accelerate cloth simulator built upon my own implementation of cloth simulator from base code provided for 15-464 mini-project 2 http://graphics.cs.cmu.edu/nsp/course/15464-s23/www/assignments/miniProject2.pdf
+CUDA accelerated cloth simulator built upon my own implementation of a cloth simulator, further built upon base code provided for 15-464 mini-project 2 http://graphics.cs.cmu.edu/nsp/course/15464-s23/www/assignments/miniProject2.pdf
 
 ## Controls
 
