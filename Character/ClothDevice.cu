@@ -90,6 +90,7 @@ static signed char* devTypeVec = NULL;
 static Vec3* devFAccumalateVec = NULL;
 static bool* devBVec = NULL;
 
+//Alloc cuda data structures
 void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
 	start = true;
 	cudaMalloc(&devPVec, pVecSize * sizeof(SubParticle));
@@ -114,6 +115,8 @@ void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
 	cudaMemset(&devTypeVec, 0, fVecSize * sizeof(signed char));
 }
 
+//Load CPU data to GPU. Only called once, at the start of the program.
+//Data remains on the GPU
 void cudaLoad(std::vector<SubParticle> pVec, std::vector<std::pair<int, int>> fVec, std::vector<std::pair<int, int>> fOrderVec, std::vector<Sphere> sVec, 
 	std::vector<signed char> typeVec, bool* bVec) {
 
@@ -136,7 +139,7 @@ void devFree() {
 	cudaFree(devTypeVec);
 }
 
-
+//Redefinition of functions for GPU
 
 __device__ float GPUWindMagnitude(Vec3 pos, float tclock) {
 	float x = pos.x; float y = pos.y; float z = pos.z;
@@ -158,10 +161,11 @@ __device__ void clearForce(SubParticle* p)
 	p->m_ForceAccumulator = Vec3(0.0f, 0.0f, 0.0f);
 }
 
-
+//Redefining force application for CUDA, relying on parameters instead of
+//SpringForce data structure to reduce memory usage
 __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce1, Vec3* retForce2, float m_ks, float m_kd, float m_dist, float tearFactor, bool* teared, bool testTear, bool copy)
 {
-	if (testTear && *teared) return;
+	if (testTear && *teared) return; //Teared may be null ie sphere collision so only condition first
 	Vec3 p1 = m_p1->m_Position;
 	Vec3 p2 = m_p2->m_Position;
 	Vec3 p1mp2 = p1 - p2; 
@@ -170,15 +174,15 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce
 	float firstFactorF = m_ks * (pdist - m_dist); 
 	Vec3 f1 =  (p1mp2 / pdist) * -1.f* (firstFactorF + m_kd * (dot(v1mv2, p1mp2)) / pdist);
 	Vec3 f2 = f1 * -1.f;
-	if (testTear && abs(vecNorm(f1)) > m_ks * tearFactor) {
+	if (testTear && abs(vecNorm(f1)) > m_ks * tearFactor) { //Handle tearing
 		*teared = true;
 		return;
 	}
-	if (copy) {
+	if (copy) { //Copy if race conditions aren't a concern
 		*retForce1 += f1;
 		*retForce2 += f2;
 	}
-	else {
+	else { //When handling spring force vector accumulation
 		*retForce1 = f1;
 		*retForce2 = f2;
 
@@ -186,12 +190,12 @@ __device__ void apply_force(SubParticle* m_p1, SubParticle* m_p2, Vec3* retForce
 }
 
 
-
 __device__ SpringForce::SpringForce(SubParticle* p1, SubParticle* p2, float dist, float ks, float kd, int p_ind1, int p_ind2, float tf) :
 	m_p1(p1), m_p2(p2), m_dist(dist), m_ks(ks), m_kd(kd),pind1(p_ind1),pind2(p_ind2), tearFactor(tf) {}
 
 //Cuda Algorithms
 
+//Integration step - only symplectic supported on GPU
 __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt, bool sidePin, bool pin, int diameter) {
 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -207,7 +211,7 @@ __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt
 		}
 	}
 	else if (sidePin) {
-		//PpVin a whole side of the cloth
+		//Pin a whole side of the cloth
 		if (index < diameter) {
 			p->m_ForceAccumulator = Vec3(0.f);
 		}
@@ -218,6 +222,7 @@ __global__ void symplecticRoutine(SubParticle* pVector, size_t pLength, float dt
 	p->m_Position += p->m_Velocity*dt;
 }
 
+//Sum a single particle's array (MAX_FORCE_PART size) of accumulated forces
 __global__ void sumForceRoutine(Vec3* accVector, SubParticle* pVector, size_t pLength) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if (index >= pLength) return;
@@ -226,6 +231,7 @@ __global__ void sumForceRoutine(Vec3* accVector, SubParticle* pVector, size_t pL
 	}
 }
 
+//Handle a single forces accumulation
 __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* fOrderVector, Vec3* accVector, bool* bVector, size_t start, size_t fLength, bool tearing, 
 	SubParticle* pVector, float ks, float kd, double dist, signed char* typeVec) {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -251,7 +257,7 @@ __global__ void forceRoutine(std::pair<int, int>* fVector, std::pair<int, int>* 
 }
 
 
-
+//Handle all particle dependent steps for a single particle
 __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pVector, 
 	size_t pLength, float tclock, bool windOn, float ks, float springConstSphere, int radius, float dt) {
 
@@ -292,6 +298,7 @@ __global__ void particleRoutine(Sphere* sVector, size_t sLength, SubParticle* pV
 
 		}
 	}
+
 	if (p->m_Position.y < EPS + GRA * dt) { //EPS used to avoid z-fighting
 		p->m_Position = Vec3(p->m_Position.x, EPS + GRA * dt, p->m_Position.z);
 	}
@@ -301,6 +308,7 @@ void CPUPrintVec3 (Vec3 v) {
 	std::cout << v.x << " " << v.y << " " << v.z << std::endl;
 }
 
+//Function that manages entire CUDA simulation step, called by Cloth.cpp
 void GPU_simulate(static std::vector<Sphere> sVector,
 	static std::vector<SubParticle>* pVector,
 	static std::vector<std::pair<int, int>>* fVector,
