@@ -14,7 +14,8 @@
 #include "Force.hpp"
 #include "SpringForce.hpp"
 
-//#define VERBOSE
+
+#define VERBOSE
 
 //https://stackoverflow.com/questions/6061565/setting-up-visual-studio-intellisense-for-cuda-kernel-calls
 #ifdef __INTELLISENSE__
@@ -96,6 +97,7 @@ void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
 	cudaMalloc(&devPVec, pVecSize * sizeof(SubParticle));
 	cudaMemset(&devPVec, 0, pVecSize * sizeof(SubParticle));
 
+
 	cudaMalloc(&devFOrderVec, fVecSize * sizeof(std::pair<int, int>));
 	cudaMemset(&devFOrderVec, 0, fVecSize * sizeof(std::pair<int, int>));
 
@@ -113,6 +115,7 @@ void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize) {
 
 	cudaMalloc(&devTypeVec, fVecSize * sizeof(signed char));
 	cudaMemset(&devTypeVec, 0, fVecSize * sizeof(signed char));
+
 }
 
 //Load CPU data to GPU. Only called once, at the start of the program.
@@ -352,6 +355,7 @@ void GPU_simulate(static std::vector<Sphere> sVector,
 	auto inter_end = std::chrono::high_resolution_clock::now();
 
 	auto copy_start = std::chrono::high_resolution_clock::now();
+	std::vector<Vec3> posTemp(pVector->size());
 	//Copy results
 	cudaMemcpy(pVector->data(), devPVec, pVector->size() * sizeof(SubParticle), cudaMemcpyDeviceToHost);
 	if (!drawTriangles && tearing) cudaMemcpy(*bVector, devBVec, fVector->size() * sizeof(bool), cudaMemcpyDeviceToHost);

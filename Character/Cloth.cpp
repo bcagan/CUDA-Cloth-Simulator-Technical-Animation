@@ -5,17 +5,16 @@
 #include <array>
 
 #include <chrono>
-
 #define CUDA
 
-//#define VERBOSE
+#define VERBOSE
 
 
 //Cloth and spatial grid parameters
-int radius = 99;
+int radius = 512;
 int diameter = 2 * radius + 1;
 
-int sceneSetting = 0; //Faster way of choosing var. presets
+int sceneSetting = 3; //Faster way of choosing var. presets
 
 float totalTime = 0.f;
 float totalIntegration = 0.f;
@@ -79,7 +78,7 @@ bool start = true;
 
 //Special variable for setting benchmarking
 int benchCount = 450;
-bool benchmark = false;
+bool benchmark = true;
 std::chrono::steady_clock::time_point lastFramePoint;
 
 
@@ -93,7 +92,7 @@ void cudaInit(size_t pVecSize, size_t fVecSize, size_t sVecSize);
 void devFree();
 
 Vector3f Vec3ToVector3f(Vec3 v) {
-	return make_vector(v.x, v.y, v.z);
+	return make_vector((float)v.x, (float)v.y, (float)v.z);
 }
 
 void triangleDraw(Vector3f a, Vector3f b, Vector3f c, Vector3f color) {
@@ -164,7 +163,8 @@ Cloth::Cloth() {
 		pin = true;
 		sidePin = false;
 		windOn = false;
-		tearing = false;
+		tearing = true;
+		doDrawTriangle = false;
 	}
 	else if (sceneSetting == 3) { //Unpinned folded
 		spheresOn = false;
@@ -442,7 +442,7 @@ void Cloth::euler_step(Integrator integrator){
 			auto& p = cudaPVector[i];
 			auto& pFull = pVector[i];
 			Vec3 tempPos = Vec3(p.m_Position.x, p.m_Position.y, p.m_Position.z);
-			p.m_Position = Vec3(2) * p.m_Position - pFull->m_LastPosition + Vec3(dt) * Vec3(dt) * p.m_ForceAccumulator * DAMP;
+			p.m_Position = Vec3(2.0) * p.m_Position - pFull->m_LastPosition + Vec3(dt) * Vec3(dt) * p.m_ForceAccumulator * DAMP;
 			pFull->m_LastPosition = tempPos;
 			
 		}
@@ -491,7 +491,7 @@ void Cloth::cpu_simulate() {
 		pMini.clearForce();
 		float gOffset = -GRA;
 		pMini.m_ForceAccumulator = pMini.m_ForceAccumulator 
-			+ Vec3(0, gOffset, 0);
+			+ Vec3(0.0, gOffset, 0.0);
 		if (windOn) pMini.m_ForceAccumulator = 
 			pMini.m_ForceAccumulator + windDir * windMagnitude(pMini.m_Position);
 

@@ -140,6 +140,9 @@
       <AdditionalDependencies>SDLmain.lib;SDL.lib;OpenGL32.lib;GlU32.lib;Ws2_32.lib;libxml2.lib;iconv.lib;cudart_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../../Dependencies/SDL-1.2.15/lib/x86;../../Dependencies/libxml2-2.7.8.win32/lib;../../Dependencies/iconv-1.9.2.win32/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <CudaCompile>
+      <CodeGeneration>compute_86,sm_86</CodeGeneration>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
